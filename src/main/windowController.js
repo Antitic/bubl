@@ -26,9 +26,10 @@ let incognitoCounter = 0;
  * with many tabs fast.
  */
 class WindowController {
-  constructor(services, { incognito = false, restore = null } = {}) {
+  constructor(services, { incognito = false, appMode = false, restore = null } = {}) {
     this.services = services;
     this.incognito = incognito;
+    this.appMode = appMode;
     this.tabs = [];
     this.activeTabId = null;
     this.contentBounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -52,12 +53,16 @@ class WindowController {
 
   _createWindow() {
     this.win = new BrowserWindow({
-      width: 1320,
-      height: 860,
-      minWidth: 760,
-      minHeight: 500,
+      width: this.appMode ? 480 : 1320,
+      height: this.appMode ? 760 : 860,
+      minWidth: this.appMode ? 360 : 760,
+      minHeight: this.appMode ? 420 : 500,
       frame: false,
-      backgroundColor: this.incognito ? '#1a0b2e' : '#1b0b2a',
+      // Transparent so the very-rounded window corners read through; the inner
+      // surfaces are opaque, so this stays cheap to composite.
+      transparent: true,
+      backgroundColor: '#00000000',
+      roundedCorners: true,
       titleBarStyle: 'hidden',
       webPreferences: {
         preload: PRELOAD,
@@ -71,20 +76,40 @@ class WindowController {
 
     this.win.on('closed', () => this._onClosed());
     this.win.on('resize', () => this._layoutActiveView());
-    this.win.on('maximize', () => this._send('window:state', { maximized: true }));
-    this.win.on('unmaximize', () => this._send('window:state', { maximized: false }));
+    this.win.on('maximize', () => this._sendEdge());
+    this.win.on('unmaximize', () => this._sendEdge());
+    this.win.on('enter-full-screen', () => this._sendEdge());
+    this.win.on('leave-full-screen', () => this._sendEdge());
 
     this.win.webContents.once('did-finish-load', () => {
       this._send('init', {
         incognito: this.incognito,
-        theme: this.services.settings.get('theme', 'dark'),
+        appMode: this.appMode,
+        theme: this.services.settings.get('theme', 'light'),
         adblockEnabled: this.services.adblock.enabled,
         searchEngines: this.services.searchEngines.list(),
         bookmarks: this.services.bookmarks.list()
       });
-      this._send('window:state', { maximized: this.win.isMaximized() });
+      this._sendEdge();
       if (this.tabs.length === 0) this._openInitialTabs();
     });
+  }
+
+  /** Tell the renderer whether to square off the window corners (edge-to-edge). */
+  _sendEdge() {
+    const edge = this.win.isMaximized() || this.win.isFullScreen();
+    this._send('window:state', { maximized: this.win.isMaximized(), edge });
+  }
+
+  /** Pop a tab out into a standalone, sidebar-less "app" window. */
+  detachTab(id) {
+    const tab = this._tab(id);
+    if (!tab || tab.isStartPage || !tab.url) return;
+    this.services.openWindow({
+      appMode: true,
+      restore: { tabs: [{ url: tab.pendingUrl || tab.url, title: tab.title, favicon: tab.favicon }], activeIndex: 0 }
+    });
+    this.closeTab(id);
   }
 
   _openInitialTabs() {
@@ -189,6 +214,17 @@ class WindowController {
 
     wc.on('will-navigate', (e, url) => {
       if (/^(mailto|tel):/i.test(url)) { e.preventDefault(); shell.openExternal(url); }
+    });
+
+    // Back/forward via mouse side-buttons and OS gestures (Windows), and via
+    // the two-finger trackpad swipe on macOS.
+    wc.on('app-command', (_e, cmd) => {
+      if (cmd === 'browser-backward') this.goBack(tab.id);
+      else if (cmd === 'browser-forward') this.goForward(tab.id);
+    });
+    wc.on('swipe', (_e, direction) => {
+      if (direction === 'left') this.goBack(tab.id);
+      else if (direction === 'right') this.goForward(tab.id);
     });
   }
 

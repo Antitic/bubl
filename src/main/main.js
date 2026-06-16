@@ -38,7 +38,10 @@ let sessionSaveTimer = null;
 function scheduleSessionSave() {
   clearTimeout(sessionSaveTimer);
   sessionSaveTimer = setTimeout(() => {
-    const windows = services.windows.filter((c) => !c.incognito).map((c) => c.serializeSession());
+    // App windows (detached tabs) and incognito are not part of the session.
+    const windows = services.windows
+      .filter((c) => !c.incognito && !c.appMode)
+      .map((c) => c.serializeSession());
     services.sessionStore.set('windows', windows);
   }, 700);
 }
@@ -49,8 +52,8 @@ function focusedController() {
   return services.windows.find((c) => c.win === win) || services.windows[0] || null;
 }
 
-function createWindow({ incognito = false } = {}) {
-  const controller = new WindowController(services, { incognito });
+function createWindow({ incognito = false, appMode = false, restore = null } = {}) {
+  const controller = new WindowController(services, { incognito, appMode, restore });
   services.windows.push(controller);
   return controller;
 }
@@ -61,7 +64,7 @@ function createWindow({ incognito = false } = {}) {
 
 app.whenReady().then(async () => {
   services.settings = new Store('settings', {
-    theme: 'dark',
+    theme: 'light',
     adblockEnabled: true
   });
   services.searchEngines = new SearchEngines();
@@ -86,6 +89,8 @@ app.whenReady().then(async () => {
   services.onClosed = (controller) => {
     services.windows = services.windows.filter((c) => c !== controller);
   };
+  // Lets a controller spawn a detached "app" window for one of its tabs.
+  services.openWindow = (opts) => createWindow(opts);
 
   buildMenu();
   registerIpc();
@@ -207,6 +212,15 @@ function registerIpc() {
   ipcMain.handle('tab:reload', (e, id) => { const c = controllerFromEvent(e); c && c.reload(id); });
   ipcMain.handle('tab:stop', (e, id) => { const c = controllerFromEvent(e); c && c.stop(id); });
   ipcMain.handle('tab:home', (e, id) => { const c = controllerFromEvent(e); c && c.goHome(id); });
+  ipcMain.handle('tab:detach', (e, id) => { const c = controllerFromEvent(e); c && c.detachTab(id); });
+
+  // One-way trackpad-swipe navigation from a tab's preload.
+  ipcMain.on('tab:gesture', (e, dir) => {
+    const entry = registry.get(e.sender.id);
+    if (!entry) return;
+    if (dir === 'back') entry.controller.goBack(entry.tab.id);
+    else if (dir === 'forward') entry.controller.goForward(entry.tab.id);
+  });
 
   // ---- Content layout / visibility ----
   ipcMain.handle('content:bounds', (e, rect) => { const c = controllerFromEvent(e); c && c.setContentBounds(rect); });

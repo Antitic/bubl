@@ -8,8 +8,20 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Static vivid candy backdrop (no expensive animated blur). -->
-  <div class="candy-bg"></div>
+  <!-- Soft organic backdrop: a static wash plus a few slow-drifting blobs
+       (transform-only animation, no blur — cheap). -->
+  <div class="candy-bg">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+
+  <!-- Floating controls for detached "app" windows (no sidebar/toolbar). -->
+  <div id="app-controls" class="no-drag" hidden>
+    <button class="winbtn min" id="app-min" title="Minimize"></button>
+    <button class="winbtn close" id="app-close" title="Close"></button>
+  </div>
+  <div id="app-drag" class="drag" hidden></div>
 
   <div id="app">
     <!-- ============ SIDEBAR (vertical, Arc-style) ============ -->

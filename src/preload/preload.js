@@ -20,6 +20,7 @@ const api = {
   reload: (id) => invoke('tab:reload', id),
   stop: (id) => invoke('tab:stop', id),
   home: (id) => invoke('tab:home', id),
+  detachTab: (id) => invoke('tab:detach', id),
 
   // Content layout
   setContentBounds: (rect) => invoke('content:bounds', rect),

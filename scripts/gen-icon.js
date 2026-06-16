@@ -22,9 +22,9 @@ const DUCK = `
 const HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
   html,body{margin:0;width:512px;height:512px;overflow:hidden}
   .tile{width:512px;height:512px;border-radius:112px;
-    background:linear-gradient(135deg,#ff2db5,#a64dff 42%,#2f8bff 74%,#18e0ff);
+    background:linear-gradient(135deg,#ff9e7d,#e8b6d0 48%,#9dc3e6);
     display:flex;align-items:center;justify-content:center;
-    box-shadow:inset 0 8px 40px rgba(255,255,255,.35);}
+    box-shadow:inset 0 8px 40px rgba(255,255,255,.45);}
   .glow{position:absolute;width:300px;height:300px;border-radius:50%;
     background:radial-gradient(circle,rgba(255,255,255,.5),transparent 70%);top:40px}
   .duck{width:330px;height:330px;filter:drop-shadow(0 14px 26px rgba(0,0,0,.35));position:relative}

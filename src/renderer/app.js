@@ -27,7 +27,8 @@ const state = {
   tabs: [],
   activeTabId: null,
   incognito: false,
-  theme: 'dark',
+  appMode: false,
+  theme: 'light',
   engines: { engines: [], defaultId: 'duckduckgo' },
   bookmarks: [],
   blockCounts: {},
@@ -43,12 +44,18 @@ const activeTab = () => state.tabs.find((t) => t.id === state.activeTabId) || nu
 // ---------------------------------------------------------------------------
 bubl.on('init', (p) => {
   state.incognito = p.incognito;
-  state.theme = p.theme || 'dark';
+  state.appMode = !!p.appMode;
+  state.theme = p.theme || 'light';
   state.engines = p.searchEngines || state.engines;
   state.bookmarks = p.bookmarks || [];
   applyTheme(state.theme);
   $('#settings-adblock').checked = !!p.adblockEnabled;
   if (state.incognito) $('#incognito-badge').hidden = false;
+  if (state.appMode) {
+    document.body.classList.add('app-mode');
+    $('#app-controls').hidden = false;
+    $('#app-drag').hidden = false;
+  }
 });
 
 bubl.on('tabs:update', ({ tabs, activeTabId }) => {
@@ -59,14 +66,32 @@ bubl.on('tabs:update', ({ tabs, activeTabId }) => {
   updateContentVisibility();
 });
 
-bubl.on('window:state', ({ maximized }) => {
+bubl.on('window:state', ({ maximized, edge }) => {
   if (maximized != null) $('#win-max').title = maximized ? 'Restore' : 'Maximize';
+  document.body.classList.toggle('edge', !!edge);
 });
 
 bubl.on('adblock:count', ({ tabId, count }) => {
+  const prev = state.blockCounts[tabId] || 0;
   state.blockCounts[tabId] = count;
-  if (tabId === state.activeTabId) { $('#block-count').textContent = count; $('#pop-count').textContent = count; }
+  if (tabId === state.activeTabId) {
+    $('#block-count').textContent = count;
+    $('#pop-count').textContent = count;
+    if (count > prev) pulseShield();
+  }
 });
+
+// Very visual feedback whenever the active tab blocks something new.
+let shieldPulseTimer = null;
+function pulseShield() {
+  const btn = $('#btn-shield');
+  btn.classList.remove('blocking');
+  // Force reflow so the animation restarts even on rapid consecutive blocks.
+  void btn.offsetWidth;
+  btn.classList.add('blocking');
+  clearTimeout(shieldPulseTimer);
+  shieldPulseTimer = setTimeout(() => btn.classList.remove('blocking'), 650);
+}
 
 bubl.on('shortcut', ({ action }) => {
   if (action === 'new-tab-bar') openCmd('new');
@@ -90,8 +115,11 @@ const tabNodes = new Map(); // id -> { node, els, data }
 function renderTabs() {
   const list = $('#tablist');
   const seen = new Set();
+  // Empty start-page tabs are not listed — the "+ New Tab" button already
+  // represents that state, so showing a "New Tab" entry would be a duplicate.
+  const visible = state.tabs.filter((t) => !t.isStartPage);
 
-  state.tabs.forEach((tab, i) => {
+  visible.forEach((tab, i) => {
     seen.add(tab.id);
     let rec = tabNodes.get(tab.id);
     if (!rec) rec = createTabNode(tab);
@@ -112,11 +140,15 @@ function createTabNode(tab) {
   node.setAttribute('draggable', 'true');
   const fav = el('div', 'tab-favicon');
   const title = el('div', 'tab-title');
+  const detach = el('button', 'tab-detach');
+  detach.textContent = '⤢';
+  detach.title = 'Open as floating app window';
   const close = el('button', 'tab-close');
   close.textContent = '✕';
   close.title = 'Close tab';
-  node.append(fav, title, close);
+  node.append(fav, title, detach, close);
 
+  detach.addEventListener('click', (e) => { e.stopPropagation(); bubl.detachTab(node.dataset.id); });
   close.addEventListener('click', (e) => { e.stopPropagation(); bubl.closeTab(tab.id); });
   node.addEventListener('click', () => {
     if (state.activeTabId === node.dataset.id) openCmd('current');
@@ -206,6 +238,8 @@ $('#btn-home').addEventListener('click', () => state.activeTabId && bubl.home(st
 $('#win-min').addEventListener('click', () => bubl.minimize());
 $('#win-max').addEventListener('click', () => bubl.maximize());
 $('#win-close').addEventListener('click', () => bubl.closeWindow());
+$('#app-min').addEventListener('click', () => bubl.minimize());
+$('#app-close').addEventListener('click', () => bubl.closeWindow());
 $('#btn-incognito').addEventListener('click', () => bubl.openIncognito());
 $('#addr-chip').addEventListener('click', () => openCmd('current'));
 $('#start-cta').addEventListener('click', () => openCmd('current'));
@@ -229,6 +263,10 @@ function openCmd(mode) {
                                         : 'Search the web or enter an address';
   $('#cmd-suggest').innerHTML = '';
   cmdOverlay.hidden = false;
+  // The active tab's WebContentsView is a native layer above the HTML, so it
+  // would cover the command bar. Hide it while the bar is open (this is the
+  // fix for the bar "sometimes not appearing" over a loaded page).
+  updateContentVisibility();
   requestAnimationFrame(() => { cmdInput.focus(); cmdInput.select(); });
   if (prefill) showCmdSuggest(prefill);
 }
@@ -237,6 +275,7 @@ function closeCmd() {
   state.cmd.open = false;
   cmdOverlay.hidden = true;
   state.cmd.items = [];
+  updateContentVisibility();
 }
 
 function submitCmd(value) {
@@ -346,9 +385,9 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openOver
 let lastContentVisible = null;
 function updateContentVisibility() {
   const tab = activeTab();
-  const startVisible = !openOverlayName && tab && tab.isStartPage;
+  const startVisible = !openOverlayName && !state.cmd.open && tab && tab.isStartPage;
   $('#overlay-start').hidden = !startVisible;
-  const visible = !openOverlayName && !startVisible;
+  const visible = !openOverlayName && !state.cmd.open && !startVisible;
   if (visible !== lastContentVisible) { lastContentVisible = visible; bubl.setContentVisible(visible); }
   if (startVisible) renderStartShortcuts();
 }
