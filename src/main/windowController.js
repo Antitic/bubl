@@ -19,6 +19,28 @@ function normalizeTheme(theme) { return THEMES.has(theme) ? theme : 'duotone'; }
 
 let incognitoCounter = 0;
 
+const READER_ON_JS = `(function(){
+  if (document.getElementById('__bubl_reader')) return;
+  var src = document.querySelector('article') || document.querySelector('main') || document.body;
+  var html = src.innerHTML;
+  var overlay = document.createElement('div');
+  overlay.id = '__bubl_reader';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;overflow:auto;background:#f6f1e7;color:#26211b;padding:48px 0;';
+  var inner = document.createElement('div');
+  inner.style.cssText = 'max-width:680px;margin:0 auto;font-family:Georgia,"Times New Roman",serif;font-size:19px;line-height:1.7;padding:0 24px;';
+  inner.innerHTML = html;
+  inner.querySelectorAll('script,style,nav,header,footer,iframe,button,form').forEach(function(el){ el.remove(); });
+  overlay.appendChild(inner);
+  document.documentElement.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+})();`;
+
+const READER_OFF_JS = `(function(){
+  var el = document.getElementById('__bubl_reader');
+  if (el) el.remove();
+  document.body.style.overflow = '';
+})();`;
+
 /**
  * Owns a single top-level browser window and all of its tabs.
  *
@@ -38,6 +60,7 @@ class WindowController {
     this.appMode = appMode;
     this.tabs = [];
     this.activeTabId = null;
+    this.activeSpaceId = 'default';
     this.contentBounds = { x: 0, y: 0, width: 0, height: 0 };
     this.contentVisible = true;
     this.destroyed = false;
@@ -94,7 +117,9 @@ class WindowController {
         theme: normalizeTheme(this.services.settings.get('theme', 'duotone')),
         adblockEnabled: this.services.adblock.enabled,
         searchEngines: this.services.searchEngines.list(),
-        bookmarks: this.services.bookmarks.list()
+        bookmarks: this.services.bookmarks.list(),
+        radiusFactor: this.services.settings.get('radiusFactor', 1),
+        sidebarPinned: this.services.settings.get('sidebarPinned', false)
       });
       this._sendEdge();
       if (this.tabs.length === 0) this._openInitialTabs();
@@ -168,7 +193,10 @@ class WindowController {
       canGoBack: false,
       canGoForward: false,
       isStartPage: isStart,
-      pendingUrl: !isStart && lazy ? url : null
+      pendingUrl: !isStart && lazy ? url : null,
+      spaceId: this.activeSpaceId || 'default',
+      readerOn: false,
+      domains: new Set()
     };
     this.tabs.push(tab);
     registry.register(view.webContents.id, this, tab);
@@ -194,6 +222,8 @@ class WindowController {
     });
     wc.on('did-start-loading', () => {
       tab.loading = true;
+      tab.readerOn = false;
+      tab.domains = new Set();
       this.services.adblock.resetTab(wc.id);
       this._emitTabs();
     });
@@ -211,6 +241,7 @@ class WindowController {
     wc.on('did-finish-load', () => {
       const url = wc.getURL();
       if (url && url !== 'about:blank') this.history.add(url, wc.getTitle());
+      if (this.services.settings.get('smoothScroll', false)) this._applySmoothScroll(tab, true);
     });
 
     wc.setWindowOpenHandler(({ url }) => {
@@ -291,6 +322,69 @@ class WindowController {
     this._emitTabs();
   }
 
+  // ---- Spaces --------------------------------------------------------------
+
+  setActiveSpace(spaceId) {
+    this.activeSpaceId = spaceId;
+    this._emitTabs();
+  }
+
+  setTabSpace(id, spaceId) {
+    const tab = this._tab(id);
+    if (!tab) return;
+    tab.spaceId = spaceId;
+    this._emitTabs();
+  }
+
+  /** Reassigns any tabs left in a removed space to the fallback space. */
+  reassignSpace(oldId, newId) {
+    for (const t of this.tabs) if (t.spaceId === oldId) t.spaceId = newId;
+    if (this.activeSpaceId === oldId) this.activeSpaceId = newId;
+    this._emitTabs();
+  }
+
+  // ---- Reading mode ----------------------------------------------------
+
+  toggleReader(id) {
+    const tab = this._tab(id);
+    if (!tab) return;
+    const wc = tab.view.webContents;
+    tab.readerOn = !tab.readerOn;
+    const js = tab.readerOn ? READER_ON_JS : READER_OFF_JS;
+    wc.executeJavaScript(js).catch(() => {});
+    this._emitTabs();
+  }
+
+  // ---- Network footprint -------------------------------------------------
+
+  trackDomain(tabId, hostname) {
+    const tab = this._tab(tabId);
+    if (tab && hostname) tab.domains.add(hostname);
+  }
+
+  networkFootprint(id) {
+    const tab = this._tab(id);
+    return tab ? Array.from(tab.domains) : [];
+  }
+
+  // ---- Smooth scroll -------------------------------------------------------
+
+  setSmoothScroll(enabled) {
+    for (const t of this.tabs) this._applySmoothScroll(t, enabled);
+  }
+
+  async _applySmoothScroll(tab, enabled) {
+    const wc = tab.view.webContents;
+    try {
+      if (enabled) {
+        tab._smoothScrollKey = await wc.insertCSS('html { scroll-behavior: smooth; }');
+      } else if (tab._smoothScrollKey) {
+        await wc.removeInsertedCSS(tab._smoothScrollKey);
+        tab._smoothScrollKey = null;
+      }
+    } catch {}
+  }
+
   // ---- Navigation --------------------------------------------------------
 
   navigate(id, input) {
@@ -365,7 +459,9 @@ class WindowController {
       canGoForward: t.canGoForward,
       isStartPage: t.isStartPage,
       active: t.id === this.activeTabId,
-      bookmarked: t.url ? this.services.bookmarks.has(t.url) : false
+      bookmarked: t.url ? this.services.bookmarks.has(t.url) : false,
+      spaceId: t.spaceId || 'default',
+      readerOn: !!t.readerOn
     }));
   }
 
@@ -388,7 +484,7 @@ class WindowController {
     this._emitTimer = setTimeout(() => {
       this._emitTimer = null;
       if (this.destroyed) return;
-      this._send('tabs:update', { tabs: this.serializeTabs(), activeTabId: this.activeTabId });
+      this._send('tabs:update', { tabs: this.serializeTabs(), activeTabId: this.activeTabId, activeSpaceId: this.activeSpaceId });
       if (!this.incognito && this.services.onSessionChanged) this.services.onSessionChanged();
     }, 12);
   }

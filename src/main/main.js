@@ -9,6 +9,7 @@ const { Bookmarks } = require('./bookmarks');
 const { History } = require('./history');
 const { AdBlocker } = require('./adblock');
 const { Store } = require('./store');
+const { Spaces } = require('./spaces');
 const registry = require('./registry');
 
 // True-portable data: when launched from the portable .exe, keep all profile
@@ -28,6 +29,7 @@ const services = {
   sharedHistory: null,
   adblock: null,
   settings: null,
+  spaces: null,
   sessionStore: null,
   windows: [],
   onClosed: null,
@@ -74,6 +76,7 @@ app.whenReady().then(async () => {
   services.onSessionChanged = scheduleSessionSave;
   services.adblock = new AdBlocker();
   services.adblock.setEnabled(services.settings.get('adblockEnabled', true));
+  services.spaces = new Spaces(services.settings);
 
   // Route blocked-counter changes to the owning window's renderer.
   services.adblock.onCountChanged = (webContentsId, count) => {
@@ -84,6 +87,11 @@ app.whenReady().then(async () => {
   services.adblock.hostnameResolver = (webContentsId) => {
     const entry = registry.get(webContentsId);
     return entry ? entry.controller.hostnameForWebContents(webContentsId) : '';
+  };
+  // Track every domain a tab contacts, for the network-footprint view.
+  services.adblock.onRequestSeen = (webContentsId, hostname) => {
+    const entry = registry.get(webContentsId);
+    if (entry) entry.controller.trackDomain(entry.tab.id, hostname);
   };
 
   services.onClosed = (controller) => {
@@ -181,6 +189,14 @@ function buildMenu() {
       ]
     },
     {
+      label: 'Spaces',
+      submenu: Array.from({ length: 9 }, (_, i) => ({
+        label: `Space ${i + 1}`,
+        accelerator: `Alt+${i + 1}`,
+        click: () => sendShortcut(`space-${i + 1}`)
+      }))
+    },
+    {
       label: 'Edit',
       submenu: [
         { role: 'undo' }, { role: 'redo' }, { type: 'separator' },
@@ -213,6 +229,20 @@ function registerIpc() {
   ipcMain.handle('tab:stop', (e, id) => { const c = controllerFromEvent(e); c && c.stop(id); });
   ipcMain.handle('tab:home', (e, id) => { const c = controllerFromEvent(e); c && c.goHome(id); });
   ipcMain.handle('tab:detach', (e, id) => { const c = controllerFromEvent(e); c && c.detachTab(id); });
+  ipcMain.handle('tab:setSpace', (e, { id, spaceId }) => { const c = controllerFromEvent(e); c && c.setTabSpace(id, spaceId); });
+  ipcMain.handle('tab:toggleReader', (e, id) => { const c = controllerFromEvent(e); c && c.toggleReader(id); });
+  ipcMain.handle('network:footprint', (e, id) => { const c = controllerFromEvent(e); return c ? c.networkFootprint(id) : []; });
+
+  // ---- Spaces ----
+  ipcMain.handle('spaces:list', () => services.spaces.list());
+  ipcMain.handle('spaces:add', (e, { name, color }) => services.spaces.add(name, color));
+  ipcMain.handle('spaces:rename', (e, { id, name }) => services.spaces.rename(id, name));
+  ipcMain.handle('spaces:remove', (e, id) => {
+    const { list, fallbackId } = services.spaces.remove(id);
+    for (const c of services.windows) c.reassignSpace(id, fallbackId);
+    return list;
+  });
+  ipcMain.handle('spaces:setActive', (e, id) => { const c = controllerFromEvent(e); c && c.setActiveSpace(id); });
 
   // One-way trackpad-swipe navigation from a tab's preload.
   ipcMain.on('tab:gesture', (e, dir) => {
@@ -260,7 +290,10 @@ function registerIpc() {
 
   // ---- Settings / theme ----
   ipcMain.handle('settings:get', (e, key) => services.settings.get(key));
-  ipcMain.handle('settings:set', (e, { key, value }) => services.settings.set(key, value));
+  ipcMain.handle('settings:set', (e, { key, value }) => {
+    services.settings.set(key, value);
+    if (key === 'smoothScroll') for (const c of services.windows) c.setSmoothScroll(!!value);
+  });
 
   // ---- Adblock ----
   ipcMain.handle('adblock:state', (e) => {

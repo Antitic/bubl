@@ -32,8 +32,12 @@ const state = {
   engines: { engines: [], defaultId: 'duckduckgo' },
   bookmarks: [],
   blockCounts: {},
-  cmd: { open: false, mode: 'new', items: [], index: -1, seq: 0 }
+  cmd: { open: false, mode: 'new', items: [], index: -1, seq: 0 },
+  spaces: [],
+  activeSpaceId: 'default',
+  sidebarPinned: false
 };
+const THEME_ORDER = ['neon', 'duotone', 'forest', 'violet'];
 
 const $ = (s) => document.querySelector(s);
 const el = (t, c) => { const n = document.createElement(t); if (c) n.className = c; return n; };
@@ -56,12 +60,19 @@ bubl.on('init', (p) => {
     $('#app-controls').hidden = false;
     $('#app-drag').hidden = false;
   }
+  document.documentElement.style.setProperty('--radius-factor', p.radiusFactor || 1);
+  state.sidebarPinned = !!p.sidebarPinned;
+  $('#btn-pin-sidebar').classList.toggle('active', state.sidebarPinned);
+  document.body.classList.toggle('sidebar-expanded', state.sidebarPinned);
+  if (!state.incognito && !state.appMode) loadSpaces();
 });
 
-bubl.on('tabs:update', ({ tabs, activeTabId }) => {
+bubl.on('tabs:update', ({ tabs, activeTabId, activeSpaceId }) => {
   state.tabs = tabs;
   state.activeTabId = activeTabId;
+  if (activeSpaceId) state.activeSpaceId = activeSpaceId;
   renderTabs();
+  renderSpaces();
   syncActiveTabUi();
   updateContentVisibility();
 });
@@ -97,6 +108,11 @@ bubl.on('shortcut', ({ action }) => {
   if (action === 'new-tab-bar') openCmd('new');
   else if (action === 'focus-address') openCmd('current');
   else if (action === 'history') toggleOverlay('history');
+  else if (action && action.startsWith('space-')) {
+    const idx = Number(action.slice(6)) - 1;
+    const space = state.spaces[idx];
+    if (space) switchSpace(space.id);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -105,13 +121,13 @@ bubl.on('shortcut', ({ action }) => {
 function applyTheme(theme) {
   // Settings saved by older builds used 'light'/'dark', which no longer
   // exist as CSS themes — falling back keeps the window from rendering blank.
-  if (theme !== 'neon' && theme !== 'duotone') theme = 'duotone';
+  if (!THEME_ORDER.includes(theme)) theme = 'duotone';
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
   document.querySelectorAll('.theme-swatch').forEach((b) => b.classList.toggle('active', b.dataset.themeOption === theme));
 }
 function setTheme(theme) { applyTheme(theme); bubl.setSetting('theme', theme); }
-function toggleTheme() { setTheme(state.theme === 'neon' ? 'duotone' : 'neon'); }
+function toggleTheme() { setTheme(THEME_ORDER[(THEME_ORDER.indexOf(state.theme) + 1) % THEME_ORDER.length]); }
 $('#btn-theme').addEventListener('click', toggleTheme);
 document.querySelectorAll('.theme-swatch').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themeOption)));
 
@@ -120,7 +136,70 @@ document.querySelectorAll('.theme-swatch').forEach((b) => b.addEventListener('cl
 // ---------------------------------------------------------------------------
 const sidebarEl = $('#sidebar');
 sidebarEl.addEventListener('mouseenter', () => document.body.classList.add('sidebar-expanded'));
-sidebarEl.addEventListener('mouseleave', () => document.body.classList.remove('sidebar-expanded'));
+sidebarEl.addEventListener('mouseleave', () => { if (!state.sidebarPinned) document.body.classList.remove('sidebar-expanded'); });
+$('#btn-pin-sidebar').addEventListener('click', () => {
+  state.sidebarPinned = !state.sidebarPinned;
+  $('#btn-pin-sidebar').classList.toggle('active', state.sidebarPinned);
+  document.body.classList.toggle('sidebar-expanded', state.sidebarPinned);
+  bubl.setSetting('sidebarPinned', state.sidebarPinned);
+});
+
+// ---------------------------------------------------------------------------
+// Workspaces / Spaces
+// ---------------------------------------------------------------------------
+async function loadSpaces() {
+  state.spaces = await bubl.spacesList();
+  renderSpaces();
+}
+
+function renderSpaces() {
+  const bar = $('#spaces-bar');
+  bar.innerHTML = '';
+  state.spaces.forEach((sp) => {
+    const chip = el('button', 'space-chip' + (sp.id === state.activeSpaceId ? ' active' : ''));
+    chip.style.setProperty('--space-color', sp.color);
+    const dot = el('span', 'space-dot');
+    const name = el('span', 'space-name'); name.textContent = sp.name;
+    chip.append(dot, name);
+    chip.title = sp.name;
+    chip.addEventListener('click', () => switchSpace(sp.id));
+    chip.addEventListener('dblclick', async (e) => {
+      e.stopPropagation();
+      const next = prompt('Rename space', sp.name);
+      if (next && next.trim()) { state.spaces = await bubl.spacesRename(sp.id, next.trim()); renderSpaces(); }
+    });
+    if (state.spaces.length > 1) {
+      const del = el('button', 'space-del'); del.textContent = '✕'; del.title = 'Delete space';
+      del.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        state.spaces = await bubl.spacesRemove(sp.id);
+        renderSpaces();
+      });
+      chip.appendChild(del);
+    }
+    bar.appendChild(chip);
+  });
+  const add = el('button', 'space-add');
+  add.textContent = '+';
+  add.title = 'New space';
+  add.addEventListener('click', async () => {
+    const sp = await bubl.spacesAdd('New Space');
+    state.spaces = await bubl.spacesList();
+    renderSpaces();
+    switchSpace(sp.id);
+  });
+  bar.appendChild(add);
+}
+
+async function switchSpace(id) {
+  state.activeSpaceId = id;
+  await bubl.spacesSetActive(id);
+  renderSpaces();
+  renderTabs();
+  const inSpace = state.tabs.find((t) => (t.spaceId || 'default') === id);
+  if (inSpace) bubl.activateTab(inSpace.id);
+  else bubl.newTab('');
+}
 
 // ---------------------------------------------------------------------------
 // Tab list — keyed reconciliation (no full rebuild, no favicon reload flicker)
@@ -132,7 +211,7 @@ function renderTabs() {
   const seen = new Set();
   // Empty start-page tabs are not listed — the "+ New Tab" button already
   // represents that state, so showing a "New Tab" entry would be a duplicate.
-  const visible = state.tabs.filter((t) => !t.isStartPage);
+  const visible = state.tabs.filter((t) => !t.isStartPage && (t.spaceId || 'default') === state.activeSpaceId);
 
   visible.forEach((tab, i) => {
     seen.add(tab.id);
@@ -241,6 +320,7 @@ function syncActiveTabUi() {
 
   $('#btn-star').textContent = tab && tab.bookmarked ? '★' : '☆';
   $('#block-count').textContent = state.blockCounts[state.activeTabId] || 0;
+  $('#btn-reader').classList.toggle('active', !!(tab && tab.readerOn));
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +336,7 @@ $('#win-close').addEventListener('click', () => bubl.closeWindow());
 $('#app-min').addEventListener('click', () => bubl.minimize());
 $('#app-close').addEventListener('click', () => bubl.closeWindow());
 $('#btn-incognito').addEventListener('click', () => bubl.openIncognito());
+$('#btn-reader').addEventListener('click', () => { const t = activeTab(); if (t && !t.isStartPage) bubl.toggleReader(t.id); });
 $('#addr-chip').addEventListener('click', () => openCmd('current'));
 $('#start-cta').addEventListener('click', () => openCmd('current'));
 
@@ -282,6 +363,7 @@ function openCmd(mode) {
   // would cover the command bar. Hide it while the bar is open (this is the
   // fix for the bar "sometimes not appearing" over a loaded page).
   updateContentVisibility();
+  cmdInput.focus(); cmdInput.select();
   requestAnimationFrame(() => { cmdInput.focus(); cmdInput.select(); });
   if (prefill) showCmdSuggest(prefill);
 }
@@ -482,8 +564,15 @@ async function loadSettings() {
   $('#settings-adblock').checked = st.enabled;
   state.engines = await bubl.enginesList();
   renderEngines();
+  $('#settings-radius').value = await bubl.getSetting('radiusFactor') || 1;
+  $('#settings-smoothscroll').checked = !!(await bubl.getSetting('smoothScroll'));
 }
 $('#settings-adblock').addEventListener('change', (e) => bubl.adblockToggle(e.target.checked));
+$('#settings-radius').addEventListener('input', (e) => {
+  document.documentElement.style.setProperty('--radius-factor', e.target.value);
+  bubl.setSetting('radiusFactor', Number(e.target.value));
+});
+$('#settings-smoothscroll').addEventListener('change', (e) => bubl.setSetting('smoothScroll', e.target.checked));
 
 function renderEngines() {
   const wrap = $('#engines-list');
@@ -532,6 +621,26 @@ $('#btn-shield').addEventListener('click', async (e) => {
 $('#pop-global').addEventListener('change', (e) => { bubl.adblockToggle(e.target.checked); $('#settings-adblock').checked = e.target.checked; });
 $('#pop-site').addEventListener('change', (e) => { const h = shieldPop.dataset.host; if (h) bubl.adblockToggleSite(h, e.target.checked); });
 document.addEventListener('click', (e) => { if (!shieldPop.hidden && !shieldPop.contains(e.target) && e.target.closest('#btn-shield') === null) shieldPop.hidden = true; });
+
+// ---------------------------------------------------------------------------
+// Network footprint popover
+// ---------------------------------------------------------------------------
+const footprintPop = $('#footprint-pop');
+$('#btn-footprint').addEventListener('click', async (e) => {
+  e.stopPropagation();
+  if (!footprintPop.hidden) { footprintPop.hidden = true; return; }
+  const tab = activeTab();
+  const domains = tab ? await bubl.networkFootprint(tab.id) : [];
+  const list = $('#footprint-list');
+  list.innerHTML = '';
+  if (!domains.length) {
+    const n = el('div', 'empty-note'); n.textContent = 'No requests recorded yet.'; list.appendChild(n);
+  } else {
+    domains.sort().forEach((d) => { const row = el('div', 'footprint-row'); row.textContent = d; list.appendChild(row); });
+  }
+  footprintPop.hidden = false;
+});
+document.addEventListener('click', (e) => { if (!footprintPop.hidden && !footprintPop.contains(e.target) && e.target.closest('#btn-footprint') === null) footprintPop.hidden = true; });
 
 // ---------------------------------------------------------------------------
 // Content bounds reporting (throttled via rAF; only sent when it changes)

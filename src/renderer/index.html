@@ -28,11 +28,14 @@
           <span class="brand-name">Bubl</span>
           <span id="incognito-badge" class="incognito-badge" hidden>incognito</span>
         </div>
+        <button class="bubble bubble-round sm no-drag" id="btn-pin-sidebar" title="Keep sidebar open">📌</button>
       </div>
 
       <button id="new-tab-btn" class="bubble bubble-wide accent no-drag" title="New tab (Ctrl+T)">
         <span class="ico">＋</span><span class="new-tab-label">New Tab</span>
       </button>
+
+      <div id="spaces-bar" class="spaces-bar no-drag" role="list"></div>
 
       <div id="tablist" class="tablist" role="list"></div>
 
@@ -65,6 +68,8 @@
             <span class="shield">🛡</span><span id="block-count" class="block-count">0</span>
           </button>
           <button class="bubble bubble-round sm" id="btn-star" title="Bookmark (★)">☆</button>
+          <button class="bubble bubble-round sm" id="btn-reader" title="Reading mode">📖</button>
+          <button class="bubble bubble-round sm" id="btn-footprint" title="Network footprint">🌐</button>
           <span class="win-sep"></span>
           <button class="winbtn min" id="win-min" title="Minimize"></button>
           <button class="winbtn max" id="win-max" title="Maximize"></button>
@@ -138,7 +143,29 @@
                   <button class="theme-swatch" data-theme-option="duotone" title="Duotone Ink">
                     <span class="ts-grad"></span><span class="ts-label">Duotone</span>
                   </button>
+                  <button class="theme-swatch" data-theme-option="forest" title="Forest Ink">
+                    <span class="ts-grad"></span><span class="ts-label">Forest</span>
+                  </button>
+                  <button class="theme-swatch" data-theme-option="violet" title="Violet Ink">
+                    <span class="ts-grad"></span><span class="ts-label">Violet</span>
+                  </button>
                 </div>
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Roundness</div>
+                  <div class="setting-hint">Adjust how rounded the interface feels.</div>
+                </div>
+                <input type="range" id="settings-radius" min="0.4" max="1.6" step="0.05" value="1" />
+              </div>
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Smooth scroll</div>
+                  <div class="setting-hint">Animate scrolling on web pages.</div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="settings-smoothscroll" /><span class="slider"></span>
+                </label>
               </div>
               <div class="setting-row">
                 <div>
@@ -162,6 +189,12 @@
             </div>
           </div>
         </section>
+
+        <!-- ===== Network footprint popover ===== -->
+        <div id="footprint-pop" class="popover glass" hidden>
+          <div class="pop-title">Network Footprint</div>
+          <div id="footprint-list" class="list-scroll footprint-list"></div>
+        </div>
 
         <!-- ===== Ad blocker popover ===== -->
         <div id="shield-pop" class="popover glass" hidden>

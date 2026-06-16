@@ -20,6 +20,13 @@ const { ElectronBlocker, fromElectronDetails } = require('@ghostery/adblocker-el
  * EasyPrivacy, Peter Lowe's list and uBlock's own lists via the prebuilt
  * "ads and tracking" bundle) — no hand-rolled regex.
  */
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('adblock engine load timed out')), ms))
+  ]);
+}
+
 class AdBlocker {
   constructor() {
     this.engine = null;
@@ -33,22 +40,41 @@ class AdBlocker {
     this.hostnameResolver = () => '';
     /** Notified (webContentsId, count) whenever a tab's counter changes. */
     this.onCountChanged = () => {};
+    /** Notified (webContentsId, hostname) for every request seen, blocked or not. */
+    this.onRequestSeen = () => {};
     this._totalBlocked = 0;
   }
 
   async init() {
     const cachePath = path.join(app.getPath('userData'), 'adblock-engine.bin');
+
+    // Seed the cache from the copy bundled with the app so first launch (and
+    // any launch without network access, e.g. GitHub raw being blocked by a
+    // firewall) still gets working filters instead of silently blocking
+    // nothing. The library reads this cache before ever touching the network.
+    if (!fs.existsSync(cachePath)) {
+      try {
+        const bundled = path.join(__dirname, 'resources', 'adblock-engine.bin');
+        if (fs.existsSync(bundled)) await fsp.copyFile(bundled, cachePath);
+      } catch (err) {
+        console.error('[bubl] failed to seed bundled adblock engine', err);
+      }
+    }
+
     try {
-      this.engine = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
-        path: cachePath,
-        read: fsp.readFile,
-        write: fsp.writeFile
-      });
+      this.engine = await withTimeout(
+        ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
+          path: cachePath,
+          read: fsp.readFile,
+          write: fsp.writeFile
+        }),
+        15000
+      );
       this.ready = true;
       console.log('[bubl] adblock engine ready');
     } catch (err) {
-      // Offline / first run without network: fall back to an empty engine so
-      // the browser still works; lists can be fetched later.
+      // Offline / network blocked and no usable cache: fall back to an empty
+      // engine so the browser still works; lists can be fetched later.
       console.error('[bubl] failed to load adblock lists, running without filters', err);
       try {
         this.engine = ElectronBlocker.empty();
@@ -102,6 +128,10 @@ class AdBlocker {
     if (!this.engine) return;
 
     session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+      try {
+        this.onRequestSeen(details.webContentsId, new URL(details.url).hostname);
+      } catch {}
+
       if (!this.enabled || !this.ready) {
         return callback({});
       }
