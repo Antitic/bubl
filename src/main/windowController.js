@@ -85,7 +85,7 @@ class WindowController {
       this._send('init', {
         incognito: this.incognito,
         appMode: this.appMode,
-        theme: this.services.settings.get('theme', 'light'),
+        theme: this.services.settings.get('theme', 'duotone'),
         adblockEnabled: this.services.adblock.enabled,
         searchEngines: this.services.searchEngines.list(),
         bookmarks: this.services.bookmarks.list()

@@ -28,7 +28,7 @@ const state = {
   activeTabId: null,
   incognito: false,
   appMode: false,
-  theme: 'light',
+  theme: 'duotone',
   engines: { engines: [], defaultId: 'duckduckgo' },
   bookmarks: [],
   blockCounts: {},
@@ -45,7 +45,7 @@ const activeTab = () => state.tabs.find((t) => t.id === state.activeTabId) || nu
 bubl.on('init', (p) => {
   state.incognito = p.incognito;
   state.appMode = !!p.appMode;
-  state.theme = p.theme || 'light';
+  state.theme = p.theme || 'duotone';
   state.engines = p.searchEngines || state.engines;
   state.bookmarks = p.bookmarks || [];
   applyTheme(state.theme);
@@ -100,12 +100,24 @@ bubl.on('shortcut', ({ action }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Theme
+// Theme — two switchable presets: Neon Dark / Duotone Ink
 // ---------------------------------------------------------------------------
-function applyTheme(theme) { state.theme = theme; document.documentElement.setAttribute('data-theme', theme); }
-function toggleTheme() { const n = state.theme === 'dark' ? 'light' : 'dark'; applyTheme(n); bubl.setSetting('theme', n); }
+function applyTheme(theme) {
+  state.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.theme-swatch').forEach((b) => b.classList.toggle('active', b.dataset.themeOption === theme));
+}
+function setTheme(theme) { applyTheme(theme); bubl.setSetting('theme', theme); }
+function toggleTheme() { setTheme(state.theme === 'neon' ? 'duotone' : 'neon'); }
 $('#btn-theme').addEventListener('click', toggleTheme);
-$('#settings-theme').addEventListener('click', toggleTheme);
+document.querySelectorAll('.theme-swatch').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.themeOption)));
+
+// ---------------------------------------------------------------------------
+// Sidebar — thin icon rail that expands into the full labeled view on hover
+// ---------------------------------------------------------------------------
+const sidebarEl = $('#sidebar');
+sidebarEl.addEventListener('mouseenter', () => document.body.classList.add('sidebar-expanded'));
+sidebarEl.addEventListener('mouseleave', () => document.body.classList.remove('sidebar-expanded'));
 
 // ---------------------------------------------------------------------------
 // Tab list — keyed reconciliation (no full rebuild, no favicon reload flicker)

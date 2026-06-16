@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="duotone">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
@@ -8,13 +8,9 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Soft organic backdrop: a static wash plus a few slow-drifting blobs
-       (transform-only animation, no blur — cheap). -->
-  <div class="candy-bg">
-    <span class="orb orb-1"></span>
-    <span class="orb orb-2"></span>
-    <span class="orb orb-3"></span>
-  </div>
+  <!-- Flat ink shell — relief comes from neumorphic box-shadows on the
+       surfaces inside, not from a painted backdrop. -->
+  <div class="candy-bg"></div>
 
   <!-- Floating controls for detached "app" windows (no sidebar/toolbar). -->
   <div id="app-controls" class="no-drag" hidden>
@@ -35,7 +31,7 @@
       </div>
 
       <button id="new-tab-btn" class="bubble bubble-wide accent no-drag" title="New tab (Ctrl+T)">
-        <span class="ico">＋</span><span>New Tab</span>
+        <span class="ico">＋</span><span class="new-tab-label">New Tab</span>
       </button>
 
       <div id="tablist" class="tablist" role="list"></div>
@@ -133,9 +129,16 @@
               <div class="setting-row">
                 <div>
                   <div class="setting-label">Theme</div>
-                  <div class="setting-hint">Switch between dark and light glass.</div>
+                  <div class="setting-hint">Neon Dark: ink + vivid multicolor neon. Duotone Ink: ink + one vivid coral.</div>
                 </div>
-                <button class="bubble bubble-wide" id="settings-theme">Toggle</button>
+                <div class="theme-picker">
+                  <button class="theme-swatch" data-theme-option="neon" title="Neon Dark">
+                    <span class="ts-grad"></span><span class="ts-label">Neon</span>
+                  </button>
+                  <button class="theme-swatch" data-theme-option="duotone" title="Duotone Ink">
+                    <span class="ts-grad"></span><span class="ts-label">Duotone</span>
+                  </button>
+                </div>
               </div>
               <div class="setting-row">
                 <div>
