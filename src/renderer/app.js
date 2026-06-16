@@ -103,6 +103,9 @@ bubl.on('shortcut', ({ action }) => {
 // Theme — two switchable presets: Neon Dark / Duotone Ink
 // ---------------------------------------------------------------------------
 function applyTheme(theme) {
+  // Settings saved by older builds used 'light'/'dark', which no longer
+  // exist as CSS themes — falling back keeps the window from rendering blank.
+  if (theme !== 'neon' && theme !== 'duotone') theme = 'duotone';
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
   document.querySelectorAll('.theme-swatch').forEach((b) => b.classList.toggle('active', b.dataset.themeOption === theme));
