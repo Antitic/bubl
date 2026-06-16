@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http:; connect-src 'self'" />
+  <title>Bubl</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Animated vivid gradient backdrop -->
+  <div class="aurora">
+    <span class="blob blob-a"></span>
+    <span class="blob blob-b"></span>
+    <span class="blob blob-c"></span>
+  </div>
+
+  <div id="app">
+    <!-- ============ SIDEBAR (vertical, Arc-style) ============ -->
+    <aside id="sidebar" class="glass floating">
+      <div class="sidebar-head drag">
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span class="brand-name">Bubl</span>
+          <span id="incognito-badge" class="incognito-badge" hidden>Incognito</span>
+        </div>
+      </div>
+
+      <button id="new-tab-btn" class="bubble bubble-wide no-drag" title="New tab (Ctrl+T)">
+        <span class="ico">＋</span><span>New Tab</span>
+      </button>
+
+      <div id="tablist" class="tablist" role="list"></div>
+
+      <div class="sidebar-foot no-drag">
+        <button class="bubble bubble-round" id="btn-bookmarks" title="Bookmarks">★</button>
+        <button class="bubble bubble-round" id="btn-history" title="History (Ctrl+H)">🕘</button>
+        <button class="bubble bubble-round" id="btn-incognito" title="New incognito window (Ctrl+Shift+N)">🕶</button>
+        <button class="bubble bubble-round" id="btn-settings" title="Settings">⚙</button>
+        <button class="bubble bubble-round" id="btn-theme" title="Toggle theme">◑</button>
+      </div>
+    </aside>
+
+    <!-- ============ MAIN ============ -->
+    <main id="main">
+      <header id="toolbar" class="glass floating drag">
+        <div class="nav-group no-drag">
+          <button class="bubble bubble-round" id="btn-back" title="Back" disabled>‹</button>
+          <button class="bubble bubble-round" id="btn-forward" title="Forward" disabled>›</button>
+          <button class="bubble bubble-round" id="btn-reload" title="Reload (Ctrl+R)">⟳</button>
+          <button class="bubble bubble-round" id="btn-home" title="Home">⌂</button>
+        </div>
+
+        <div class="address-wrap no-drag">
+          <div class="address-shell glass-inset">
+            <span id="security-ico" class="security-ico">🔒</span>
+            <input id="address" type="text" spellcheck="false"
+                   placeholder="Search with DuckDuckGo or enter address"
+                   autocomplete="off" />
+            <button class="bubble bubble-round mini" id="btn-shield" title="Ad blocker">
+              <span class="shield">🛡</span><span id="block-count" class="block-count">0</span>
+            </button>
+            <button class="bubble bubble-round mini" id="btn-star" title="Bookmark this page">☆</button>
+          </div>
+          <div id="suggestions" class="suggestions glass" hidden></div>
+        </div>
+
+        <div class="window-controls no-drag">
+          <button class="winbtn min" id="win-min" title="Minimize">—</button>
+          <button class="winbtn max" id="win-max" title="Maximize">▢</button>
+          <button class="winbtn close" id="win-close" title="Close">✕</button>
+        </div>
+      </header>
+
+      <div id="content">
+        <!-- The active tab's WebContentsView is positioned over this anchor. -->
+        <div id="webcontent-anchor"></div>
+
+        <!-- ===== Overlays (floating glass panels) ===== -->
+        <section id="overlay-start" class="overlay" hidden>
+          <div class="start-inner">
+            <h1 class="start-title">Bubl</h1>
+            <p class="start-sub">Private. Vivid. Fast.</p>
+            <div class="start-search glass floating">
+              <input id="start-input" type="text" spellcheck="false"
+                     placeholder="Search the web privately…" autocomplete="off" />
+            </div>
+            <div class="start-shortcuts" id="start-shortcuts"></div>
+          </div>
+        </section>
+
+        <section id="overlay-history" class="overlay panel" hidden>
+          <div class="panel-card glass floating">
+            <div class="panel-head">
+              <h2>History</h2>
+              <div class="panel-actions">
+                <input id="history-search" class="glass-inset panel-input" placeholder="Search history…" />
+                <button class="bubble bubble-wide danger" id="history-clear">Clear all</button>
+                <button class="bubble bubble-round" data-close-overlay>✕</button>
+              </div>
+            </div>
+            <div id="history-list" class="list-scroll"></div>
+          </div>
+        </section>
+
+        <section id="overlay-bookmarks" class="overlay panel" hidden>
+          <div class="panel-card glass floating">
+            <div class="panel-head">
+              <h2>Bookmarks</h2>
+              <div class="panel-actions">
+                <button class="bubble bubble-round" data-close-overlay>✕</button>
+              </div>
+            </div>
+            <div id="bookmarks-list" class="list-scroll"></div>
+          </div>
+        </section>
+
+        <section id="overlay-settings" class="overlay panel" hidden>
+          <div class="panel-card glass floating">
+            <div class="panel-head">
+              <h2>Settings</h2>
+              <div class="panel-actions">
+                <button class="bubble bubble-round" data-close-overlay>✕</button>
+              </div>
+            </div>
+            <div class="list-scroll">
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Theme</div>
+                  <div class="setting-hint">Switch between dark and light glass.</div>
+                </div>
+                <button class="bubble bubble-wide" id="settings-theme">Toggle</button>
+              </div>
+
+              <div class="setting-row">
+                <div>
+                  <div class="setting-label">Ad &amp; tracker blocking</div>
+                  <div class="setting-hint">EasyList + EasyPrivacy network filtering.</div>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="settings-adblock" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+
+              <div class="setting-block">
+                <div class="setting-label">Search engines</div>
+                <div class="setting-hint">DuckDuckGo is the privacy-friendly default.</div>
+                <div id="engines-list" class="engines-list"></div>
+                <div class="engine-add">
+                  <input id="engine-name" class="glass-inset panel-input" placeholder="Name" />
+                  <input id="engine-url" class="glass-inset panel-input"
+                         placeholder="URL with %s, e.g. https://x.com/?q=%s" />
+                  <button class="bubble bubble-wide" id="engine-add-btn">Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ad blocker popover -->
+        <div id="shield-pop" class="popover glass floating" hidden>
+          <div class="pop-title">Ad Blocker</div>
+          <div class="pop-row">
+            <span>Blocked on this page</span>
+            <strong id="pop-count">0</strong>
+          </div>
+          <div class="pop-row">
+            <span>Blocked in total</span>
+            <strong id="pop-total">0</strong>
+          </div>
+          <hr />
+          <label class="switch-row">
+            <span>Enabled globally</span>
+            <label class="switch"><input type="checkbox" id="pop-global" /><span class="slider"></span></label>
+          </label>
+          <label class="switch-row">
+            <span id="pop-site-label">Enabled on this site</span>
+            <label class="switch"><input type="checkbox" id="pop-site" /><span class="slider"></span></label>
+          </label>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
