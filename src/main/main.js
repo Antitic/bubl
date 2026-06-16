@@ -1,5 +1,6 @@
 'use strict';
 
+const path = require('path');
 const { app, ipcMain, Menu, BrowserWindow, net } = require('electron');
 
 const { WindowController } = require('./windowController');
@@ -10,6 +11,16 @@ const { AdBlocker } = require('./adblock');
 const { Store } = require('./store');
 const registry = require('./registry');
 
+// True-portable data: when launched from the portable .exe, keep all profile
+// data in a "BublData" folder next to the executable so the whole thing can be
+// moved/closed/reopened with tabs, history and bookmarks intact.
+if (process.env.PORTABLE_EXECUTABLE_DIR) {
+  app.setPath('userData', path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'BublData'));
+}
+
+// One Chromium instance per data dir.
+if (!app.requestSingleInstanceLock()) app.quit();
+
 // Single shared services container, injected into every window.
 const services = {
   searchEngines: null,
@@ -17,9 +28,20 @@ const services = {
   sharedHistory: null,
   adblock: null,
   settings: null,
+  sessionStore: null,
   windows: [],
-  onClosed: null
+  onClosed: null,
+  onSessionChanged: null
 };
+
+let sessionSaveTimer = null;
+function scheduleSessionSave() {
+  clearTimeout(sessionSaveTimer);
+  sessionSaveTimer = setTimeout(() => {
+    const windows = services.windows.filter((c) => !c.incognito).map((c) => c.serializeSession());
+    services.sessionStore.set('windows', windows);
+  }, 700);
+}
 
 function focusedController() {
   const win = BrowserWindow.getFocusedWindow();
@@ -45,6 +67,8 @@ app.whenReady().then(async () => {
   services.searchEngines = new SearchEngines();
   services.bookmarks = new Bookmarks();
   services.sharedHistory = new History({ persistent: true });
+  services.sessionStore = new Store('session', { windows: [] });
+  services.onSessionChanged = scheduleSessionSave;
   services.adblock = new AdBlocker();
   services.adblock.setEnabled(services.settings.get('adblockEnabled', true));
 
@@ -69,11 +93,22 @@ app.whenReady().then(async () => {
   // Load filter lists in the background; the first window opens immediately.
   services.adblock.init();
 
-  createWindow({ incognito: false });
+  // Restore the previous session's windows/tabs, or open a fresh window.
+  const saved = services.sessionStore.get('windows', []);
+  if (Array.isArray(saved) && saved.length) {
+    for (const w of saved) createWindow({ incognito: false, restore: w });
+  } else {
+    createWindow({ incognito: false });
+  }
 
   app.on('activate', () => {
     if (services.windows.length === 0) createWindow({ incognito: false });
   });
+});
+
+app.on('second-instance', () => {
+  const c = services.windows[0];
+  if (c && c.win) { if (c.win.isMinimized()) c.win.restore(); c.win.focus(); }
 });
 
 app.on('window-all-closed', () => {
@@ -98,7 +133,7 @@ function buildMenu() {
         {
           label: 'New Tab',
           accelerator: 'CmdOrCtrl+T',
-          click: () => { const c = focusedController(); if (c) c.newTab(''); }
+          click: () => sendShortcut('new-tab-bar')
         },
         {
           label: 'Close Tab',

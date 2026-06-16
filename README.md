@@ -2,7 +2,8 @@
 
 A modern, privacy-respecting **portable web browser** for Windows 10/11, built on
 Electron. Inspired by Firefox's privacy philosophy, wrapped in an ultra-modern
-**liquid-glass** interface with vertical, Arc-style tabs.
+**Pop-candy liquid-glass** interface with vertical, Arc-style tabs — and a duck
+in sunglasses for a mascot. 🦆🕶️
 
 ![Bubl](assets/icon.png)
 
@@ -10,8 +11,15 @@ Electron. Inspired by Firefox's privacy philosophy, wrapped in an ultra-modern
 
 - **Vertical tabs (Arc-style)** in a floating left sidebar — create, close,
   drag-to-reorder, favicons, live loading spinners, active-tab glow.
-- **Combined address + search bar** with history-based and live remote
-  autocomplete. Non-URL input runs a search with your default engine.
+- **Floating command/search bar (Zen-style)** — `Ctrl+T` (or the *New Tab*
+  button) opens a floating search bar instead of an empty tab; it only creates a
+  tab once you submit. Click the active tab or press `Ctrl+L` to edit the
+  current address in the same bar. History + live remote autocomplete; non-URL
+  input runs a search with your default engine.
+- **Session restore** — tabs are remembered and restored on relaunch (lazily
+  loaded for speed). Profile data lives in a portable `BublData/` folder next to
+  the executable, so you can close and reopen with your tabs, history and
+  bookmarks intact.
 - **Configurable search engines** — add / remove / set default.
   **DuckDuckGo is the default**; Google, Bing, Brave Search and Startpage are
   preconfigured.
@@ -27,9 +35,12 @@ Electron. Inspired by Firefox's privacy philosophy, wrapped in an ultra-modern
 - **Bookmarks**: one-tap star, quick-access panel, start-page shortcuts.
 - **Keyboard shortcuts**: `Ctrl+T`, `Ctrl+W`, `Ctrl+L`, `Ctrl+Shift+N`,
   `Ctrl+R`, `Ctrl+H`.
-- **Liquid-glass design**: translucent blurred panels, vivid neon gradients,
-  floating rounded surfaces, bubble buttons with hover glow, frameless window
-  with custom controls, and a **dark / light theme toggle**.
+- **Pop-candy liquid-glass design**: ultra-saturated candy gradients, real
+  glass bubble buttons (translucent, blurred, with hover glow), a slim toolbar
+  with just the controls, floating panels, frameless window with custom candy
+  controls, a duck-in-sunglasses logo, and a **dark / light theme toggle**.
+  Tuned for performance (no expensive animated blur, throttled layout, in-place
+  tab updates).
 
 ## Architecture
 
