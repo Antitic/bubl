@@ -343,11 +343,13 @@ $('#btn-settings').addEventListener('click', () => toggleOverlay('settings'));
 document.querySelectorAll('[data-close-overlay]').forEach((b) => b.addEventListener('click', closeOverlay));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openOverlayName) closeOverlay(); });
 
+let lastContentVisible = null;
 function updateContentVisibility() {
   const tab = activeTab();
   const startVisible = !openOverlayName && tab && tab.isStartPage;
   $('#overlay-start').hidden = !startVisible;
-  bubl.setContentVisible(!openOverlayName && !startVisible);
+  const visible = !openOverlayName && !startVisible;
+  if (visible !== lastContentVisible) { lastContentVisible = visible; bubl.setContentVisible(visible); }
   if (startVisible) renderStartShortcuts();
 }
 

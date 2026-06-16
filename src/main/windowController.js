@@ -340,8 +340,15 @@ class WindowController {
   }
 
   _emitTabs() {
-    this._send('tabs:update', { tabs: this.serializeTabs(), activeTabId: this.activeTabId });
-    if (!this.incognito && this.services.onSessionChanged) this.services.onSessionChanged();
+    // Coalesce bursts (title + favicon + navigate often fire back-to-back, and
+    // SPA sites fire did-navigate-in-page rapidly) into one IPC per frame.
+    if (this._emitTimer) return;
+    this._emitTimer = setTimeout(() => {
+      this._emitTimer = null;
+      if (this.destroyed) return;
+      this._send('tabs:update', { tabs: this.serializeTabs(), activeTabId: this.activeTabId });
+      if (!this.incognito && this.services.onSessionChanged) this.services.onSessionChanged();
+    }, 12);
   }
 
   _send(channel, payload) {
