@@ -274,6 +274,8 @@ class WindowController {
       tab.isStartPage = false;
       this._updateNav(tab);
       this._emitTabs();
+      // Re-inject YouTube ad killer on SPA navigations (video changes).
+      if (/youtube\.com/i.test(tab.url)) this._injectYouTubeAdKiller(wc);
     };
     wc.on('did-navigate', onNavigate);
     wc.on('did-navigate-in-page', onNavigate);
@@ -282,6 +284,7 @@ class WindowController {
       const url = wc.getURL();
       if (url && url !== 'about:blank') this.history.add(url, wc.getTitle());
       if (this.services.settings.get('smoothScroll', false)) this._applySmoothScroll(tab, true);
+      if (/youtube\.com/i.test(url)) this._injectYouTubeAdKiller(wc);
     });
 
     wc.setWindowOpenHandler(({ url }) => {
@@ -303,6 +306,61 @@ class WindowController {
       if (direction === 'left') this.goBack(tab.id);
       else if (direction === 'right') this.goForward(tab.id);
     });
+  }
+
+  _injectYouTubeAdKiller(wc) {
+    // Inject CSS to hide ad UI elements immediately.
+    wc.insertCSS(`
+      .ad-showing .ytp-ad-module,
+      .ytp-ad-overlay-container,
+      .ytp-ad-text-overlay,
+      .ytp-ad-skip-button-container,
+      #masthead-ad,
+      ytd-banner-promo-renderer,
+      ytd-statement-banner-renderer,
+      ytd-display-ad-renderer,
+      ytd-in-feed-ad-layout-renderer,
+      ytd-promoted-sparkles-web-renderer,
+      ytd-promoted-video-renderer,
+      ytd-search-pyv-renderer,
+      .ytd-merch-shelf-renderer,
+      #player-ads,
+      .ytp-ce-element { display: none !important; }
+    `).catch(() => {});
+
+    // Inject JS: auto-skip pre-roll ads and mute+fast-forward unskippable ones.
+    wc.executeJavaScript(`
+      (function() {
+        if (window.__bublYtAdKiller) return;
+        window.__bublYtAdKiller = true;
+
+        function killAd() {
+          // Click skip button the instant it appears.
+          var skip = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button');
+          if (skip) { skip.click(); return; }
+
+          // For unskippable ads: mute + seek to end.
+          var video = document.querySelector('video');
+          if (!video) return;
+          var player = document.querySelector('.html5-video-player, #movie_player');
+          if (!player) return;
+          var isAd = player.classList.contains('ad-showing') ||
+                     !!document.querySelector('.ytp-ad-player-overlay');
+          if (isAd && !video.paused) {
+            video.muted = true;
+            if (video.duration && isFinite(video.duration)) {
+              video.currentTime = video.duration;
+            }
+          }
+        }
+
+        // Poll every 300ms — YouTube is a SPA so we can't rely on load events alone.
+        setInterval(killAd, 300);
+
+        // Also observe DOM for dynamically injected ad nodes.
+        new MutationObserver(killAd).observe(document.body, { childList: true, subtree: true });
+      })();
+    `).catch(() => {});
   }
 
   _updateNav(tab) {
