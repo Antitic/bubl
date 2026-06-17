@@ -14,6 +14,40 @@ const TAB_PRELOAD = path.join(__dirname, '..', 'preload', 'tabPreload.js');
 const THEMES = new Set(['pop', 'midnight']);
 function normalizeTheme(theme) { return THEMES.has(theme) ? theme : 'pop'; }
 
+// Injected via Page.addScriptToEvaluateOnNewDocument BEFORE any YouTube script
+// runs. Intercepts ytInitialPlayerResponse (inline data) and fetch calls to the
+// player API, stripping adPlacements / adSlots / playerAds from both so the
+// player never receives ad configuration and plays video without ads.
+const YOUTUBE_PREFETCH_SCRIPT = `(function(){
+  if(!location.hostname.endsWith('youtube.com'))return;
+  var AD=['adPlacements','adSlots','playerAds','adBreaks','adMessages','auxiliaryUi'];
+  function prune(o){
+    if(!o||typeof o!=='object')return;
+    AD.forEach(function(k){delete o[k];});
+    try{if(o.playerConfig&&o.playerConfig.adConfig)o.playerConfig.adConfig={};}catch(e){}
+  }
+  // Catch ytInitialPlayerResponse = {...} written by the inline <script> tag
+  var _v;
+  Object.defineProperty(window,'ytInitialPlayerResponse',{
+    get:function(){return _v;},
+    set:function(v){prune(v);_v=v;},
+    configurable:true,enumerable:true
+  });
+  // Strip ads from /youtubei/v1/player API responses (SPA navigations)
+  var _f=window.fetch;
+  window.fetch=function(input,init){
+    var url=(typeof input==='string'?input:(input&&input.url))||'';
+    var p=_f.apply(this,arguments);
+    if(!url.includes('/youtubei/v1/player'))return p;
+    return p.then(function(r){
+      return r.clone().json().then(function(d){
+        prune(d);
+        return new Response(JSON.stringify(d),{status:r.status,statusText:r.statusText,headers:r.headers});
+      }).catch(function(){return r;});
+    });
+  };
+})();`;
+
 let incognitoCounter = 0;
 
 const READER_ON_JS = `(function(){
@@ -255,6 +289,17 @@ class WindowController {
   _wireTab(tab) {
     const wc = tab.view.webContents;
 
+    // Attach Chrome DevTools Protocol debugger to inject the YouTube ad
+    // killer BEFORE any page script runs, on every new document.
+    // executeJavaScript from main bypasses CSP but fires at DOMContentLoaded;
+    // Page.addScriptToEvaluateOnNewDocument fires at document-start (earlier).
+    try {
+      wc.debugger.attach('1.3');
+      wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', {
+        source: YOUTUBE_PREFETCH_SCRIPT
+      }).catch(() => {});
+    } catch {}
+
     wc.on('page-title-updated', (_e, title) => { tab.title = title; this._emitTabs(); });
     wc.on('page-favicon-updated', (_e, favicons) => {
       tab.favicon = favicons && favicons[0] ? favicons[0] : null;
@@ -309,9 +354,11 @@ class WindowController {
   }
 
   _injectYouTubeAdKiller(wc) {
-    // Inject CSS to hide ad UI elements immediately.
+    // CSS: hide any ad UI that slips through (server-side ads, UI overlays).
+    // ytd-enforcement-message-view-model is the "disable your ad blocker" wall.
     wc.insertCSS(`
       .ad-showing .ytp-ad-module,
+      .ytp-ad-player-overlay,
       .ytp-ad-overlay-container,
       .ytp-ad-text-overlay,
       .ytp-ad-skip-button-container,
@@ -323,42 +370,49 @@ class WindowController {
       ytd-promoted-sparkles-web-renderer,
       ytd-promoted-video-renderer,
       ytd-search-pyv-renderer,
+      ytd-ad-slot-renderer,
       .ytd-merch-shelf-renderer,
       #player-ads,
-      .ytp-ce-element { display: none !important; }
+      .ytp-ce-element,
+      ytd-enforcement-message-view-model,
+      .yt-mealbar-promo-renderer { display: none !important; }
     `).catch(() => {});
 
-    // Inject JS: auto-skip pre-roll ads and mute+fast-forward unskippable ones.
+    // JS: runs via executeJavaScript which bypasses CSP (main-process privilege).
+    // Handles any video ad that still reaches the player despite the fetch
+    // interception (e.g. server-side stitched ads), auto-skips / fast-forwards,
+    // and removes the "ad blocker not allowed" overlay if it appears.
     wc.executeJavaScript(`
-      (function() {
-        if (window.__bublYtAdKiller) return;
-        window.__bublYtAdKiller = true;
+      (function () {
+        if (window.__bublYt) return;
+        window.__bublYt = true;
 
-        function killAd() {
+        function tick() {
           // Click skip button the instant it appears.
           var skip = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button');
           if (skip) { skip.click(); return; }
 
-          // For unskippable ads: mute + seek to end.
-          var video = document.querySelector('video');
-          if (!video) return;
-          var player = document.querySelector('.html5-video-player, #movie_player');
-          if (!player) return;
-          var isAd = player.classList.contains('ad-showing') ||
-                     !!document.querySelector('.ytp-ad-player-overlay');
-          if (isAd && !video.paused) {
+          // Fast-forward any unskippable in-stream ad.
+          var player = document.querySelector('#movie_player');
+          var video  = document.querySelector('video.html5-main-video');
+          if (player && video && player.classList.contains('ad-showing') && !video.paused) {
             video.muted = true;
-            if (video.duration && isFinite(video.duration)) {
-              video.currentTime = video.duration;
-            }
+            if (isFinite(video.duration)) video.currentTime = video.duration;
+            else video.playbackRate = 16;
+          }
+
+          // Remove "ad blocker not allowed" enforcement overlay and resume.
+          var msg = document.querySelector('ytd-enforcement-message-view-model');
+          if (msg) {
+            var wrap = msg.closest('.yt-playback-error-supported-renderers, ytd-player-error-message-renderer');
+            if (wrap) wrap.remove(); else msg.remove();
+            if (video && video.paused) video.play().catch(function () {});
           }
         }
 
-        // Poll every 300ms — YouTube is a SPA so we can't rely on load events alone.
-        setInterval(killAd, 300);
-
-        // Also observe DOM for dynamically injected ad nodes.
-        new MutationObserver(killAd).observe(document.body, { childList: true, subtree: true });
+        setInterval(tick, 250);
+        var target = document.body || document.documentElement;
+        new MutationObserver(tick).observe(target, { childList: true, subtree: true });
       })();
     `).catch(() => {});
   }

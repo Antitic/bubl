@@ -154,6 +154,12 @@ class UBlockManager {
         const hostname = new URL(details.url).hostname;
         if (this.whitelist.has(hostname)) return callback({});
 
+        // Skip CSP modification for YouTube: we inject our own JS via the debugger
+        // (which bypasses CSP) and tightening their CSP risks breaking the player.
+        if (hostname.endsWith('youtube.com') || hostname.endsWith('youtu.be')) {
+          return callback({});
+        }
+
         let request;
         try { request = fromElectronDetails(details); } catch { return callback({}); }
 
