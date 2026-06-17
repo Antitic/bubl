@@ -1,26 +1,31 @@
 'use strict';
 
+const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
-const { session: electronSession } = require('electron');
+const { app } = require('electron');
+const { ElectronBlocker, fromElectronDetails } = require('@ghostery/adblocker-electron');
 
-// Extensions must be loaded from a real filesystem path, not from inside an
-// asar archive. electron-builder puts asarUnpack'd files in app.asar.unpacked/.
-function unpackedPath(...parts) {
-  const p = path.join(__dirname, ...parts);
-  return p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
-}
-
-const UBO_PATH = unpackedPath('resources', 'ublock', 'uBlock0.chromium');
+// Pre-serialised engine shipped with the app (~7 MB: EasyList, EasyPrivacy,
+// uBlock Origin filters, Peter Lowe's list, etc — ~300 000 rules).
+const BUNDLED_BIN = path.join(__dirname, 'resources', 'adblock-engine.bin');
 
 /**
- * Loads uBlock Origin as a real Chrome extension into the persistent session.
+ * Network-level ad/tracker blocker.
  *
- * uBO handles all request blocking internally via its MV2 webRequest hooks —
- * no custom onBeforeRequest handler needed. We keep a thin network-observer
- * on the same session solely to maintain per-tab blocked counters.
+ * Electron does NOT support the chrome.webRequest API for loaded extensions,
+ * so running uBlock Origin as an extension cannot actually block anything.
+ * Instead we drive Ghostery's adblocker engine (the same filter format as
+ * uBlock Origin) ourselves through session.webRequest.onBeforeRequest — which
+ * works reliably in the main process.
+ *
+ * The request handler is registered immediately, even before the engine
+ * finishes loading, so nothing slips through; blocking activates the moment
+ * `this.ready` flips true.
  */
 class UBlockManager {
   constructor() {
+    this.engine = null;
     this.ready = false;
     this.enabled = true;
     this.whitelist = new Set();
@@ -30,52 +35,96 @@ class UBlockManager {
     this.onCountChanged = () => {};
     this.onRequestSeen = () => {};
     this._sessions = new Set();
-    this._extension = null;
   }
 
-  /**
-   * Load uBlock Origin into the default persistent session.
-   * Must be called after app.whenReady() resolves.
-   */
   async init() {
+    const cachePath = path.join(app.getPath('userData'), 'adblock-engine.bin');
+
+    // 1. Deserialise the userData cache (hot path after first launch).
+    if (fs.existsSync(cachePath)) {
+      try {
+        const buf = await fsp.readFile(cachePath);
+        this.engine = ElectronBlocker.deserialize(
+          new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+        );
+        this.ready = true;
+        console.log(`[bubl/adblock] loaded from cache (${(buf.length / 1e6).toFixed(1)} MB)`);
+        return;
+      } catch (e) {
+        console.warn('[bubl/adblock] cache unreadable, using bundled binary', e.message);
+      }
+    }
+
+    // 2. Deserialise the binary bundled with the app (works fully offline).
+    if (fs.existsSync(BUNDLED_BIN)) {
+      try {
+        const buf = await fsp.readFile(BUNDLED_BIN);
+        this.engine = ElectronBlocker.deserialize(
+          new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+        );
+        this.ready = true;
+        console.log(`[bubl/adblock] loaded from bundled binary (${(buf.length / 1e6).toFixed(1)} MB)`);
+        fsp.copyFile(BUNDLED_BIN, cachePath).catch(() => {});
+        return;
+      } catch (e) {
+        console.warn('[bubl/adblock] bundled binary unreadable, fetching from network', e.message);
+      }
+    }
+
+    // 3. Last resort: fetch the lists from the network.
     try {
-      const ses = electronSession.fromPartition('persist:bubl');
-      this._extension = await ses.loadExtension(UBO_PATH, { allowFileAccess: true });
+      this.engine = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
+        path: cachePath, read: fsp.readFile, write: fsp.writeFile
+      });
       this.ready = true;
-      console.log('[bubl/ublock] uBlock Origin loaded, id:', this._extension.id);
+      console.log('[bubl/adblock] engine fetched from network');
     } catch (e) {
-      console.error('[bubl/ublock] failed to load uBlock Origin:', e.message);
+      console.error('[bubl/adblock] could not load any filters:', e.message);
+      this.engine = ElectronBlocker.empty();
+      this.ready = true;
     }
   }
 
   /**
-   * Attach a thin observer to a session for per-tab domain tracking and
-   * blocked-counter increments. The actual blocking is done by uBO.
-   *
-   * For incognito sessions, uBO isn't loaded (extensions don't run in
-   * incognito by default) so we enable our own lightweight block list.
+   * Register a blocking handler on a session. Safe to call before init()
+   * resolves — the handler no-ops until `this.ready` is true. The same
+   * handler also feeds the network-footprint tracker.
    */
-  enableForSession(ses, isIncognito = false) {
+  enableForSession(ses, _isIncognito = false) {
     if (this._sessions.has(ses)) return;
     this._sessions.add(ses);
 
-    if (isIncognito) {
-      // Load uBO in incognito too — Electron allows this via allowFileAccess.
-      ses.loadExtension(UBO_PATH, { allowFileAccess: true }).catch((e) => {
-        console.warn('[bubl/ublock] incognito extension load failed:', e.message);
-      });
-    }
-
-    // Domain tracker (for network footprint panel).
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+      // Footprint tracking: record every domain a tab contacts.
       try {
         this.onRequestSeen(details.webContentsId, new URL(details.url).hostname);
       } catch {}
-      callback({});
+
+      if (!this.enabled || !this.ready || !this.engine) return callback({});
+
+      const url = details.url;
+      if (url.startsWith('file://') || url.startsWith('devtools://') ||
+          url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+        return callback({});
+      }
+
+      // Per-site toggle: skip blocking for whitelisted top-frame hosts.
+      const host = this.hostnameResolver(details.webContentsId);
+      if (host && this.whitelist.has(host)) return callback({});
+
+      let request;
+      try { request = fromElectronDetails(details); }
+      catch { return callback({}); }
+
+      const { match, redirect } = this.engine.match(request);
+      if (redirect) return callback({ redirectURL: redirect.dataUrl });
+      if (match) {
+        this._increment(details.webContentsId);
+        return callback({ cancel: true });
+      }
+      return callback({});
     });
   }
-
-  // ── Stub API kept for backwards compatibility with IPC handlers ──
 
   setEnabled(value) { this.enabled = !!value; }
 

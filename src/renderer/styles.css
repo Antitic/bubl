@@ -17,6 +17,11 @@
   src: url('fonts/syne.woff2') format('woff2');
   font-weight: 400 800; font-style: normal; font-display: swap;
 }
+@font-face {
+  font-family: 'Jost';
+  src: url('fonts/jost.woff2') format('woff2');
+  font-weight: 100 900; font-style: normal; font-display: swap;
+}
 
 :root {
   --sidebar-w: 252px;
@@ -36,8 +41,10 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --spring: cubic-bezier(0.34, 1.45, 0.5, 1);
 
-  --font-ui: 'Syne', system-ui, -apple-system, sans-serif;
-  --font-display: 'Syne', system-ui, sans-serif;
+  /* Jost — clean, legible geometric sans for all UI/menu/body text.
+     Syne — distinctive display face reserved for the logo & headings. */
+  --font-ui: 'Jost', system-ui, -apple-system, sans-serif;
+  --font-display: 'Syne', 'Jost', system-ui, sans-serif;
 
   /* ── The rainbow — saturated Memphis pop ── */
   --pink:   #ff2e88;
@@ -113,7 +120,9 @@ body.edge .candy-bg { border-radius: 0; border-width: 0; }
   position: relative; z-index: 1;
   display: grid; grid-template-columns: var(--sidebar-w-collapsed) 1fr;
   gap: var(--gap); height: 100vh; padding: var(--gap);
-  transition: grid-template-columns .3s var(--spring);
+  /* Plain ease (no spring overshoot) — the column width drives the native
+     content view, so an overshooting curve makes the page jitter. */
+  transition: grid-template-columns .22s var(--ease);
 }
 body.sidebar-expanded #app { grid-template-columns: var(--sidebar-w) 1fr; }
 .drag { -webkit-app-region: drag; }

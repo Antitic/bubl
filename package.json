@@ -32,8 +32,7 @@
       "package.json"
     ],
     "asarUnpack": [
-      "src/main/resources/tor/**/*",
-      "src/main/resources/ublock/**/*"
+      "src/main/resources/tor/**/*"
     ],
     "win": {
       "target": [
