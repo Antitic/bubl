@@ -104,18 +104,6 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.01em; }
   border-radius: var(--win-radius);
   border: var(--bw-lg) solid var(--ink);
 }
-/* Playful confetti shapes scattered in the window background */
-.candy-bg::before, .candy-bg::after {
-  content: ""; position: absolute; pointer-events: none; opacity: 0.5;
-}
-.candy-bg::before {
-  width: 220px; height: 220px; right: -60px; top: -60px; border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, var(--yellow), transparent 70%);
-}
-.candy-bg::after {
-  width: 280px; height: 280px; left: -80px; bottom: -90px; border-radius: 50%;
-  background: radial-gradient(circle at 60% 40%, var(--blue), transparent 70%);
-}
 body.edge .candy-bg { border-radius: 0; border-width: 0; }
 
 /* ============================================================
@@ -361,14 +349,6 @@ body.app-mode #app { grid-template-columns: 1fr; }
 
 /* ---- Start page / Dashboard ---- */
 #overlay-start { background: var(--cream); border-radius: var(--radius-lg); overflow: hidden; border: var(--bw) solid var(--ink); box-shadow: var(--sh); }
-#overlay-start::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0.55;
-  background:
-    radial-gradient(circle at 12% 18%, var(--yellow) 0 60px, transparent 62px),
-    radial-gradient(circle at 88% 22%, var(--blue) 0 44px, transparent 46px),
-    radial-gradient(circle at 80% 82%, var(--lime) 0 70px, transparent 72px),
-    radial-gradient(circle at 18% 84%, var(--violet) 0 38px, transparent 40px);
-}
 .start-inner { width: min(660px, 90%); text-align: center; display: flex; flex-direction: column; align-items: center; position: relative; }
 .start-duck { width: 120px; height: 120px; margin-bottom: 8px; animation: bob 4.5s ease-in-out infinite; }
 @keyframes bob { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(2deg); } }
