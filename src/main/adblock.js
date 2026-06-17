@@ -47,40 +47,64 @@ class AdBlocker {
 
   async init() {
     const cachePath = path.join(app.getPath('userData'), 'adblock-engine.bin');
+    const bundledPath = path.join(__dirname, 'resources', 'adblock-engine.bin');
 
-    // Seed the cache from the copy bundled with the app so first launch (and
-    // any launch without network access, e.g. GitHub raw being blocked by a
-    // firewall) still gets working filters instead of silently blocking
-    // nothing. The library reads this cache before ever touching the network.
-    if (!fs.existsSync(cachePath)) {
+    // Step 1: Try to load from userData cache (fastest, offline-capable).
+    if (fs.existsSync(cachePath)) {
       try {
-        const bundled = path.join(__dirname, 'resources', 'adblock-engine.bin');
-        if (fs.existsSync(bundled)) await fsp.copyFile(bundled, cachePath);
+        const raw = await fsp.readFile(cachePath);
+        this.engine = ElectronBlocker.deserialize(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
+        this.ready = true;
+        console.log('[bubl] adblock engine loaded from cache (%d bytes)', raw.length);
+        // Refresh in background without blocking startup.
+        this._refreshEngine(cachePath);
+        return;
       } catch (err) {
-        console.error('[bubl] failed to seed bundled adblock engine', err);
+        console.warn('[bubl] cache corrupt, falling back to bundled', err.message);
       }
     }
 
+    // Step 2: No valid cache — seed from the copy bundled inside the app.
+    if (fs.existsSync(bundledPath)) {
+      try {
+        const raw = await fsp.readFile(bundledPath);
+        this.engine = ElectronBlocker.deserialize(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
+        this.ready = true;
+        console.log('[bubl] adblock engine loaded from bundled binary');
+        // Copy to userData so the next launch is a cache hit.
+        fsp.copyFile(bundledPath, cachePath).catch(() => {});
+        this._refreshEngine(cachePath);
+        return;
+      } catch (err) {
+        console.warn('[bubl] bundled engine unreadable, fetching fresh', err.message);
+      }
+    }
+
+    // Step 3: Last resort — fetch from the network.
+    await this._refreshEngine(cachePath);
+  }
+
+  async _refreshEngine(cachePath) {
     try {
-      this.engine = await withTimeout(
+      const engine = await withTimeout(
         ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
           path: cachePath,
           read: fsp.readFile,
           write: fsp.writeFile
         }),
-        15000
+        30000
       );
+      this.engine = engine;
       this.ready = true;
-      console.log('[bubl] adblock engine ready');
+      console.log('[bubl] adblock engine updated from network lists');
     } catch (err) {
-      // Offline / network blocked and no usable cache: fall back to an empty
-      // engine so the browser still works; lists can be fetched later.
-      console.error('[bubl] failed to load adblock lists, running without filters', err);
-      try {
+      if (!this.engine) {
+        // Nothing worked at all.
+        console.error('[bubl] adblock completely unavailable', err.message);
         this.engine = ElectronBlocker.empty();
         this.ready = true;
-      } catch (e) {
-        this.ready = false;
+      } else {
+        console.warn('[bubl] background refresh failed, keeping existing engine', err.message);
       }
     }
   }
@@ -123,16 +147,23 @@ class AdBlocker {
   /**
    * Attach the blocker's request handler to a session. Safe to call for both
    * the normal and incognito partitions.
+   *
+   * The handler is registered immediately even if the engine isn't loaded yet;
+   * requests pass through until `this.ready` is true, then blocking starts
+   * automatically without needing to re-register.
    */
   enableForSession(session) {
-    if (!this.engine) return;
+    // Track sessions so we can log; never double-register.
+    if (!this._sessions) this._sessions = new Set();
+    if (this._sessions.has(session)) return;
+    this._sessions.add(session);
 
     session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
       try {
         this.onRequestSeen(details.webContentsId, new URL(details.url).hostname);
       } catch {}
 
-      if (!this.enabled || !this.ready) {
+      if (!this.enabled || !this.ready || !this.engine) {
         return callback({});
       }
 
