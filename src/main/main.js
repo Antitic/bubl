@@ -369,7 +369,9 @@ function registerIpc() {
     return [];
   });
   ipcMain.handle('tor:presetBridges', (e, type) => {
-    const ptConfig = require('./resources/tor/tor/pluggable_transports/pt_config.json');
+    const ptConfig = JSON.parse(require('fs').readFileSync(
+      require('path').join(__dirname, 'resources', 'tor', 'tor', 'pluggable_transports', 'pt_config.json'), 'utf-8'
+    ));
     const presets = ptConfig.bridges || {};
     const bridges = presets[type] || [];
     services.tor.clearBridges();

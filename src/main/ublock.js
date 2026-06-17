@@ -3,7 +3,14 @@
 const path = require('path');
 const { session: electronSession } = require('electron');
 
-const UBO_PATH = path.join(__dirname, 'resources', 'ublock', 'uBlock0.chromium');
+// Extensions must be loaded from a real filesystem path, not from inside an
+// asar archive. electron-builder puts asarUnpack'd files in app.asar.unpacked/.
+function unpackedPath(...parts) {
+  const p = path.join(__dirname, ...parts);
+  return p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
+}
+
+const UBO_PATH = unpackedPath('resources', 'ublock', 'uBlock0.chromium');
 
 /**
  * Loads uBlock Origin as a real Chrome extension into the persistent session.

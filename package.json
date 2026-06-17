@@ -31,6 +31,10 @@
       "assets/**/*",
       "package.json"
     ],
+    "asarUnpack": [
+      "src/main/resources/tor/**/*",
+      "src/main/resources/ublock/**/*"
+    ],
     "win": {
       "target": [
         "portable",

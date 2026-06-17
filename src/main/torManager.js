@@ -11,8 +11,15 @@ const TOR_SOCKS_PORT = 9152;  // avoid conflict with system Tor on 9050
 const TOR_CONTROL_PORT = 9153;
 const TOR_DATA_SUBDIR = 'TorData';
 
-// Bundled tor.exe shipped with the portable app.
-const TOR_BIN = path.join(__dirname, 'resources', 'tor', 'tor', 'tor.exe');
+// Resolve a path that may be inside app.asar (reads OK) or app.asar.unpacked
+// (required for spawning child processes — executables can't run from an asar).
+function unpackedPath(...parts) {
+  const p = path.join(__dirname, ...parts);
+  // In production the asar.unpacked mirror is next to the asar archive.
+  return p.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
+}
+
+const TOR_BIN = unpackedPath('resources', 'tor', 'tor', 'tor.exe');
 
 /**
  * Manages a child tor.exe process and a SOCKS5 proxy session mapping.
@@ -116,7 +123,7 @@ class TorManager {
   }
 
   async _writeTorrc(torrcPath) {
-    const ptDir = path.join(__dirname, 'resources', 'tor', 'tor', 'pluggable_transports');
+    const ptDir = unpackedPath('resources', 'tor', 'tor', 'pluggable_transports');
     let lines = [
       `SocksPort ${TOR_SOCKS_PORT}`,
       `ControlPort ${TOR_CONTROL_PORT}`,
