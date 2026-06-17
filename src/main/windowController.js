@@ -215,7 +215,7 @@ class WindowController {
         session: this.session,
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: true,
+        sandbox: false,
         preload: TAB_PRELOAD,
         backgroundThrottling: true
       }

@@ -3,26 +3,13 @@
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
-const { app } = require('electron');
+const { app, ipcMain } = require('electron');
 const { ElectronBlocker, fromElectronDetails } = require('@ghostery/adblocker-electron');
 
 // Pre-serialised engine shipped with the app (~7 MB: EasyList, EasyPrivacy,
 // uBlock Origin filters, Peter Lowe's list, etc — ~300 000 rules).
 const BUNDLED_BIN = path.join(__dirname, 'resources', 'adblock-engine.bin');
 
-/**
- * Network-level ad/tracker blocker.
- *
- * Electron does NOT support the chrome.webRequest API for loaded extensions,
- * so running uBlock Origin as an extension cannot actually block anything.
- * Instead we drive Ghostery's adblocker engine (the same filter format as
- * uBlock Origin) ourselves through session.webRequest.onBeforeRequest — which
- * works reliably in the main process.
- *
- * The request handler is registered immediately, even before the engine
- * finishes loading, so nothing slips through; blocking activates the moment
- * `this.ready` flips true.
- */
 class UBlockManager {
   constructor() {
     this.engine = null;
@@ -35,12 +22,13 @@ class UBlockManager {
     this.onCountChanged = () => {};
     this.onRequestSeen = () => {};
     this._sessions = new Set();
+    this._ipcRegistered = false;
   }
 
   async init() {
     const cachePath = path.join(app.getPath('userData'), 'adblock-engine.bin');
 
-    // 1. Deserialise the userData cache (hot path after first launch).
+    // 1. Deserialise userData cache (hot path after first launch).
     if (fs.existsSync(cachePath)) {
       try {
         const buf = await fsp.readFile(cachePath);
@@ -49,14 +37,13 @@ class UBlockManager {
         );
         this.ready = true;
         console.log(`[bubl/adblock] loaded from cache (${(buf.length / 1e6).toFixed(1)} MB)`);
-        return;
       } catch (e) {
         console.warn('[bubl/adblock] cache unreadable, using bundled binary', e.message);
       }
     }
 
-    // 2. Deserialise the binary bundled with the app (works fully offline).
-    if (fs.existsSync(BUNDLED_BIN)) {
+    // 2. Deserialise binary bundled with the app (works fully offline).
+    if (!this.ready && fs.existsSync(BUNDLED_BIN)) {
       try {
         const buf = await fsp.readFile(BUNDLED_BIN);
         this.engine = ElectronBlocker.deserialize(
@@ -65,37 +52,129 @@ class UBlockManager {
         this.ready = true;
         console.log(`[bubl/adblock] loaded from bundled binary (${(buf.length / 1e6).toFixed(1)} MB)`);
         fsp.copyFile(BUNDLED_BIN, cachePath).catch(() => {});
-        return;
       } catch (e) {
         console.warn('[bubl/adblock] bundled binary unreadable, fetching from network', e.message);
       }
     }
 
-    // 3. Last resort: fetch the lists from the network.
-    try {
-      this.engine = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
-        path: cachePath, read: fsp.readFile, write: fsp.writeFile
-      });
-      this.ready = true;
-      console.log('[bubl/adblock] engine fetched from network');
-    } catch (e) {
-      console.error('[bubl/adblock] could not load any filters:', e.message);
-      this.engine = ElectronBlocker.empty();
-      this.ready = true;
+    // 3. Last resort: fetch from network.
+    if (!this.ready) {
+      try {
+        this.engine = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
+          path: cachePath, read: fsp.readFile, write: fsp.writeFile
+        });
+        this.ready = true;
+        console.log('[bubl/adblock] engine fetched from network');
+      } catch (e) {
+        console.error('[bubl/adblock] could not load any filters:', e.message);
+        this.engine = ElectronBlocker.empty();
+        this.ready = true;
+      }
     }
+
+    // Register global IPC handlers for cosmetic + scriptlet injection.
+    // These are called by @ghostery/adblocker-electron-preload from every tab.
+    this._registerCosmeticIpc();
   }
 
-  /**
-   * Register a blocking handler on a session. Safe to call before init()
-   * resolves — the handler no-ops until `this.ready` is true. The same
-   * handler also feeds the network-footprint tracker.
-   */
+  // ── Cosmetic filtering (DOM / CSS layer) ────────────────────────────────
+  //
+  // The ghostery preload script (required from tabPreload.js) calls:
+  //   ipcRenderer.invoke('@ghostery/adblocker/inject-cosmetic-filters', url, msg)
+  // where msg is undefined on the first call for a page, then carries
+  // { ids, classes, hrefs } on DOM-mutation updates.
+  //
+  // Instead of returning CSS to the renderer, we inject directly from here
+  // via insertCSS / executeJavaScript — no round-trip data, no sandbox issues.
+
+  _registerCosmeticIpc() {
+    if (this._ipcRegistered) return;
+    this._ipcRegistered = true;
+
+    ipcMain.handle('@ghostery/adblocker/inject-cosmetic-filters', async (event, url, msg) => {
+      if (!this.enabled || !this.ready || !this.engine) return;
+      try {
+        const parsed = new URL(url);
+        const hostname = parsed.hostname;
+        if (this.whitelist.has(hostname)) return;
+
+        // Simple eTLD+1: last two labels. Good enough for filter matching.
+        const parts = hostname.split('.');
+        const domain = parts.slice(-2).join('.');
+
+        const isFirstRun = msg === undefined;
+        const { active, styles, scripts } = this.engine.getCosmeticsFilters({
+          domain,
+          hostname,
+          url,
+          classes: msg?.classes,
+          hrefs: msg?.hrefs,
+          ids: msg?.ids,
+          getBaseRules: isFirstRun,
+          getInjectionRules: isFirstRun,
+          getExtendedRules: false,
+          getRulesFromHostname: isFirstRun,
+          getRulesFromDOM: !isFirstRun,
+        });
+
+        if (!active) return;
+
+        // cssOrigin: 'user' gives user-agent priority (beats page CSS).
+        if (styles.length > 0) {
+          event.sender.insertCSS(styles, { cssOrigin: 'user' });
+        }
+        // Scriptlets run in the page world and break anti-adblock detectors.
+        for (const script of scripts) {
+          try { event.sender.executeJavaScript(script, true); } catch {}
+        }
+      } catch {}
+    });
+
+    // Preload queries this before setting up MutationObserver.
+    ipcMain.handle('@ghostery/adblocker/is-mutation-observer-enabled', () => true);
+  }
+
+  // ── Session attachment ──────────────────────────────────────────────────
+  //
+  // Called once per session (normal + each incognito partition) before any
+  // navigation, so nothing slips through on first load.
+
   enableForSession(ses, _isIncognito = false) {
     if (this._sessions.has(ses)) return;
     this._sessions.add(ses);
 
+    // CSP header modification: adds directives blocking inline-script ad loaders
+    // and other $csp-rule targets. Only touches mainFrame/subFrame responses.
+    ses.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (details, callback) => {
+      if (!this.enabled || !this.ready || !this.engine) return callback({});
+      try {
+        if (details.resourceType !== 'mainFrame' && details.resourceType !== 'subFrame') {
+          return callback({});
+        }
+        const hostname = new URL(details.url).hostname;
+        if (this.whitelist.has(hostname)) return callback({});
+
+        let request;
+        try { request = fromElectronDetails(details); } catch { return callback({}); }
+
+        const cspDirectives = this.engine.getCSPDirectives(request);
+        if (!cspDirectives) return callback({});
+
+        const headers = { ...details.responseHeaders };
+        const CSP = 'content-security-policy';
+        const existingKey = Object.keys(headers).find(k => k.toLowerCase() === CSP);
+        const existing = existingKey ? (headers[existingKey][0] || '') : '';
+        if (existingKey) delete headers[existingKey];
+        headers[CSP] = [existing ? `${existing}; ${cspDirectives}` : cspDirectives];
+        callback({ responseHeaders: headers });
+      } catch {
+        callback({});
+      }
+    });
+
+    // Network-level blocking + footprint tracking.
+    // Handler is attached immediately; blocking activates once `this.ready` flips.
     ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
-      // Footprint tracking: record every domain a tab contacts.
       try {
         this.onRequestSeen(details.webContentsId, new URL(details.url).hostname);
       } catch {}
@@ -108,13 +187,11 @@ class UBlockManager {
         return callback({});
       }
 
-      // Per-site toggle: skip blocking for whitelisted top-frame hosts.
       const host = this.hostnameResolver(details.webContentsId);
       if (host && this.whitelist.has(host)) return callback({});
 
       let request;
-      try { request = fromElectronDetails(details); }
-      catch { return callback({}); }
+      try { request = fromElectronDetails(details); } catch { return callback({}); }
 
       const { match, redirect } = this.engine.match(request);
       if (redirect) return callback({ redirectURL: redirect.dataUrl });

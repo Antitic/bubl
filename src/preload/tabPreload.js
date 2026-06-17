@@ -1,7 +1,17 @@
 'use strict';
 
+// Cosmetic ad blocking: auto-executes on require. Sets up DOMContentLoaded
+// listener that collects page DOM features (ids/classes/hrefs), sends them to
+// the main process, which injects matching CSS via insertCSS and runs
+// scriptlets via executeJavaScript. Also installs a MutationObserver so
+// dynamically injected ad nodes (YouTube, SPAs) get hidden post-load.
+// sandbox: false is required on the WebContentsView for this require to work.
+try { require('@ghostery/adblocker-electron-preload'); } catch (e) {
+  console.warn('[bubl/adblock] cosmetic preload failed:', e.message);
+}
+
 // Preload injected into tab web content. Runs with context isolation and
-// sandboxing; it exposes no API to the page. Its only job is to turn a
+// no API exposed to the page. Its secondary job is to turn a
 // decisive horizontal trackpad swipe into a back/forward navigation request,
 // mirroring the native "overscroll to go back" gesture (which Electron does
 // not enable for embedded views by default).
