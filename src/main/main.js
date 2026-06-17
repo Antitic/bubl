@@ -7,7 +7,8 @@ const { WindowController } = require('./windowController');
 const { SearchEngines } = require('./searchEngines');
 const { Bookmarks } = require('./bookmarks');
 const { History } = require('./history');
-const { AdBlocker } = require('./adblock');
+const { UBlockManager } = require('./ublock');
+const { TorManager } = require('./torManager');
 const { Store } = require('./store');
 const { Spaces } = require('./spaces');
 const registry = require('./registry');
@@ -28,6 +29,7 @@ const services = {
   bookmarks: null,
   sharedHistory: null,
   adblock: null,
+  tor: null,
   settings: null,
   spaces: null,
   sessionStore: null,
@@ -74,8 +76,12 @@ app.whenReady().then(async () => {
   services.sharedHistory = new History({ persistent: true });
   services.sessionStore = new Store('session', { windows: [] });
   services.onSessionChanged = scheduleSessionSave;
-  services.adblock = new AdBlocker();
+  services.adblock = new UBlockManager();
   services.adblock.setEnabled(services.settings.get('adblockEnabled', true));
+  services.tor = new TorManager();
+  services.tor.onStatusChange = (status, progress) => {
+    for (const c of services.windows) c._send('tor:status', { status, progress });
+  };
   services.spaces = new Spaces(services.settings);
 
   // Route blocked-counter changes to the owning window's renderer.
@@ -103,8 +109,8 @@ app.whenReady().then(async () => {
   buildMenu();
   registerIpc();
 
-  // Load filter lists in the background; the first window opens immediately.
-  services.adblock.init();
+  // Load uBlock Origin extension before any windows open.
+  await services.adblock.init();
 
   // Restore the previous session's windows/tabs, or open a fresh window.
   const saved = services.sessionStore.get('windows', []);
@@ -328,6 +334,39 @@ function registerIpc() {
     const c = controllerFromEvent(e);
     if (c && c.activeTabId) c.reload(c.activeTabId);
     return { host, enabled };
+  });
+
+  // ---- Tor ----
+  ipcMain.handle('tor:status', () => ({
+    status: services.tor.status,
+    progress: services.tor._bootstrapPct,
+    exitCountry: services.tor._exitCountry,
+    bridges: services.tor.getBridges(),
+    useBridges: services.tor._useBridges
+  }));
+  ipcMain.handle('tor:start', async () => {
+    await services.tor.start();
+    // Route all regular (non-incognito) sessions through Tor.
+    for (const c of services.windows) {
+      if (!c.incognito) services.tor.applyToSession(c.session);
+    }
+    return services.tor.status;
+  });
+  ipcMain.handle('tor:stop', () => {
+    services.tor.stop();
+    return 'off';
+  });
+  ipcMain.handle('tor:setExit', async (e, cc) => {
+    services.tor.setExitCountry(cc || '');
+    return cc;
+  });
+  ipcMain.handle('tor:addBridge', (e, line) => {
+    services.tor.addBridge(line);
+    return services.tor.getBridges();
+  });
+  ipcMain.handle('tor:clearBridges', () => {
+    services.tor.clearBridges();
+    return [];
   });
 }
 

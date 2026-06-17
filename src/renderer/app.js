@@ -578,8 +578,73 @@ async function loadSettings() {
   renderEngines();
   $('#settings-radius').value = await bubl.getSetting('radiusFactor') || 1;
   $('#settings-smoothscroll').checked = !!(await bubl.getSetting('smoothScroll'));
+  await loadTorState();
 }
 $('#settings-adblock').addEventListener('change', (e) => bubl.adblockToggle(e.target.checked));
+
+// ── Tor ──────────────────────────────────────────────────────────────────────
+const torToggle = $('#settings-tor');
+const torControls = $('#tor-controls');
+const torHint = $('#tor-hint');
+const torExitSel = $('#tor-exit-country');
+const torBridgeInput = $('#tor-bridge-input');
+const torBridgeList = $('#tor-bridge-list');
+
+const TOR_HINTS = {
+  off:      'Route all traffic through the Tor anonymity network.',
+  starting: 'Connecting to Tor… this may take a minute.',
+  on:       '🟢 Connected to Tor. Your IP is hidden.',
+  error:    '🔴 Tor failed to connect. Check your bridges or try again.'
+};
+
+async function loadTorState() {
+  const s = await bubl.torStatus();
+  torToggle.checked = s.status === 'on' || s.status === 'starting';
+  torControls.hidden = !torToggle.checked;
+  torHint.textContent = TOR_HINTS[s.status] || TOR_HINTS.off;
+  torExitSel.value = s.exitCountry || '';
+  renderTorBridges(s.bridges || []);
+}
+
+function renderTorBridges(bridges) {
+  torBridgeList.textContent = bridges.length
+    ? bridges.map((b, i) => `${i + 1}. ${b.slice(0, 60)}…`).join('\n')
+    : 'No bridges configured.';
+}
+
+torToggle.addEventListener('change', async (e) => {
+  torControls.hidden = !e.target.checked;
+  if (e.target.checked) {
+    torHint.textContent = TOR_HINTS.starting;
+    await bubl.torStart();
+  } else {
+    await bubl.torStop();
+    torHint.textContent = TOR_HINTS.off;
+  }
+});
+
+torExitSel.addEventListener('change', (e) => bubl.torSetExit(e.target.value));
+
+$('#tor-bridge-add').addEventListener('click', async () => {
+  const line = torBridgeInput.value.trim();
+  if (!line) return;
+  const bridges = await bubl.torAddBridge(line);
+  renderTorBridges(bridges);
+  torBridgeInput.value = '';
+});
+
+$('#tor-bridge-clear').addEventListener('click', async () => {
+  const bridges = await bubl.torClearBridges();
+  renderTorBridges(bridges);
+});
+
+// Live status updates from main process.
+bubl.on('tor:status', ({ status, progress }) => {
+  torHint.textContent = status === 'starting'
+    ? `Connecting to Tor… ${progress}%`
+    : (TOR_HINTS[status] || TOR_HINTS.off);
+  if (status !== 'starting') torToggle.checked = status === 'on';
+});
 $('#settings-radius').addEventListener('input', (e) => {
   document.documentElement.style.setProperty('--radius-factor', e.target.value);
   bubl.setSetting('radiusFactor', Number(e.target.value));

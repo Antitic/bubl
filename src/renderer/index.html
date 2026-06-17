@@ -195,6 +195,46 @@
                   <input type="checkbox" id="settings-adblock" /><span class="slider"></span>
                 </label>
               </div>
+              <!-- ── Tor ── -->
+              <div class="setting-block tor-block">
+                <div class="setting-row tor-header-row">
+                  <div>
+                    <div class="setting-label">🧅 Tor Network</div>
+                    <div class="setting-hint" id="tor-hint">Route all traffic through the Tor anonymity network.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="settings-tor" /><span class="slider"></span>
+                  </label>
+                </div>
+                <div id="tor-controls" hidden>
+                  <div class="setting-row">
+                    <div class="setting-label" style="font-size:12px">Exit country</div>
+                    <select id="tor-exit-country" class="glass-inset panel-input" style="width:120px;padding:4px 8px">
+                      <option value="">Any country</option>
+                      <option value="US">🇺🇸 United States</option>
+                      <option value="DE">🇩🇪 Germany</option>
+                      <option value="FR">🇫🇷 France</option>
+                      <option value="NL">🇳🇱 Netherlands</option>
+                      <option value="SE">🇸🇪 Sweden</option>
+                      <option value="CH">🇨🇭 Switzerland</option>
+                      <option value="GB">🇬🇧 United Kingdom</option>
+                      <option value="JP">🇯🇵 Japan</option>
+                      <option value="CA">🇨🇦 Canada</option>
+                      <option value="AU">🇦🇺 Australia</option>
+                    </select>
+                  </div>
+                  <div class="setting-block" style="margin-top:8px">
+                    <div class="setting-label" style="font-size:12px">Bridges <span class="setting-hint">(for censored networks)</span></div>
+                    <div id="tor-bridge-list" style="font-size:11px;opacity:0.7;margin:4px 0"></div>
+                    <div class="engine-add" style="margin-top:4px">
+                      <input id="tor-bridge-input" class="glass-inset panel-input" placeholder="obfs4 1.2.3.4:443 FP cert=... iat-mode=0" style="flex:1" />
+                      <button class="bubble" id="tor-bridge-add">Add</button>
+                      <button class="bubble" id="tor-bridge-clear">Clear</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div class="setting-block">
                 <div class="setting-label">Search engines</div>
                 <div class="setting-hint">DuckDuckGo is the privacy-friendly default.</div>

@@ -75,7 +75,7 @@ class WindowController {
       this.history = services.sharedHistory;
     }
 
-    this.services.adblock.enableForSession(this.session);
+    this.services.adblock.enableForSession(this.session, incognito);
     this._createWindow();
   }
 

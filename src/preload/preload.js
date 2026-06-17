@@ -73,9 +73,17 @@ const api = {
   adblockToggle: (enabled) => invoke('adblock:toggle', enabled),
   adblockToggleSite: (host, enabled) => invoke('adblock:toggleSite', { host, enabled }),
 
+  // Tor
+  torStatus: () => invoke('tor:status'),
+  torStart: () => invoke('tor:start'),
+  torStop: () => invoke('tor:stop'),
+  torSetExit: (cc) => invoke('tor:setExit', cc),
+  torAddBridge: (line) => invoke('tor:addBridge', line),
+  torClearBridges: () => invoke('tor:clearBridges'),
+
   // Events from main -> renderer
   on: (channel, handler) => {
-    const allowed = ['init', 'tabs:update', 'window:state', 'adblock:count', 'shortcut'];
+    const allowed = ['init', 'tabs:update', 'window:state', 'adblock:count', 'shortcut', 'tor:status'];
     if (!allowed.includes(channel)) return () => {};
     const listener = (_e, payload) => handler(payload);
     ipcRenderer.on(channel, listener);
