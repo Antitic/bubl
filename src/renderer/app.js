@@ -336,6 +336,7 @@ $('#win-max').addEventListener('click', () => bubl.maximize());
 $('#win-close').addEventListener('click', () => bubl.closeWindow());
 $('#app-min').addEventListener('click', () => bubl.minimize());
 $('#app-close').addEventListener('click', () => bubl.closeWindow());
+$('#app-reattach').addEventListener('click', () => bubl.reattachTab());
 $('#btn-incognito').addEventListener('click', () => bubl.openIncognito());
 $('#btn-reader').addEventListener('click', () => { const t = activeTab(); if (t && !t.isStartPage) bubl.toggleReader(t.id); });
 $('#addr-chip').addEventListener('click', () => openCmd('current'));

@@ -6,116 +6,114 @@ const path = require('path');
 const { app } = require('electron');
 const { ElectronBlocker, fromElectronDetails } = require('@ghostery/adblocker-electron');
 
+// Pre-serialised engine shipped with the app (generated at build time).
+// At ~7 MB it contains EasyList, EasyPrivacy, uBlock Origin filters,
+// Peter Lowe's list and uBlock Origin Annoyances — ~300 000 rules total.
+const BUNDLED_BIN = path.join(__dirname, 'resources', 'adblock-engine.bin');
+
 /**
  * Network-level ad/tracker blocker.
  *
- * The spec mandates blocking through `session.webRequest.onBeforeRequest`, so
- * rather than delegating to `enableBlockingInSession` we own the request
- * handler ourselves. This gives full control over:
- *   - a global on/off toggle,
- *   - per-site whitelisting,
- *   - and an accurate per-tab blocked counter.
+ * Uses @ghostery/adblocker-electron (same filter engine as uBlock Origin) with
+ * the bundled engine binary for instant startup — no network required on first
+ * launch. The engine refreshes its filter lists silently in the background so
+ * subsequent launches stay up to date.
  *
- * Filter matching itself is delegated to Ghostery's engine (EasyList,
- * EasyPrivacy, Peter Lowe's list and uBlock's own lists via the prebuilt
- * "ads and tracking" bundle) — no hand-rolled regex.
+ * The session.webRequest handler is registered immediately (before the engine
+ * finishes loading) so no requests escape during startup. Blocking activates
+ * automatically once `this.ready` flips to true.
  */
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('adblock engine load timed out')), ms))
-  ]);
-}
-
 class AdBlocker {
   constructor() {
     this.engine = null;
     this.ready = false;
     this.enabled = true;
-    /** Hostnames where blocking is disabled (per-site toggle). */
     this.whitelist = new Set();
-    /** webContentsId -> blocked count for the current page load. */
     this.tabCounts = new Map();
-    /** Resolve a webContentsId to its current top-frame hostname. */
     this.hostnameResolver = () => '';
-    /** Notified (webContentsId, count) whenever a tab's counter changes. */
     this.onCountChanged = () => {};
-    /** Notified (webContentsId, hostname) for every request seen, blocked or not. */
     this.onRequestSeen = () => {};
     this._totalBlocked = 0;
+    this._sessions = new Set();
   }
 
   async init() {
     const cachePath = path.join(app.getPath('userData'), 'adblock-engine.bin');
-    const bundledPath = path.join(__dirname, 'resources', 'adblock-engine.bin');
 
-    // Step 1: Try to load from userData cache (fastest, offline-capable).
+    // ── 1. Deserialise from userData cache (hot path after first launch). ──
     if (fs.existsSync(cachePath)) {
       try {
-        const raw = await fsp.readFile(cachePath);
-        this.engine = ElectronBlocker.deserialize(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
+        const buf = await fsp.readFile(cachePath);
+        this.engine = ElectronBlocker.deserialize(
+          new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+        );
         this.ready = true;
-        console.log('[bubl] adblock engine loaded from cache (%d bytes)', raw.length);
-        // Refresh in background without blocking startup.
-        this._refreshEngine(cachePath);
+        console.log(`[bubl/adblock] loaded from cache (${(buf.length / 1e6).toFixed(1)} MB)`);
+        // Refresh lists silently without blocking the UI.
+        this._scheduleRefresh(cachePath);
         return;
-      } catch (err) {
-        console.warn('[bubl] cache corrupt, falling back to bundled', err.message);
+      } catch (e) {
+        console.warn('[bubl/adblock] cache unreadable, falling back to bundled binary', e.message);
       }
     }
 
-    // Step 2: No valid cache — seed from the copy bundled inside the app.
-    if (fs.existsSync(bundledPath)) {
+    // ── 2. Seed from the binary bundled with the app (works offline). ──
+    if (fs.existsSync(BUNDLED_BIN)) {
       try {
-        const raw = await fsp.readFile(bundledPath);
-        this.engine = ElectronBlocker.deserialize(new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength));
+        const buf = await fsp.readFile(BUNDLED_BIN);
+        this.engine = ElectronBlocker.deserialize(
+          new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+        );
         this.ready = true;
-        console.log('[bubl] adblock engine loaded from bundled binary');
-        // Copy to userData so the next launch is a cache hit.
-        fsp.copyFile(bundledPath, cachePath).catch(() => {});
-        this._refreshEngine(cachePath);
+        console.log(`[bubl/adblock] loaded from bundled binary (${(buf.length / 1e6).toFixed(1)} MB)`);
+        // Copy to userData so the next launch uses it as a cache.
+        fsp.copyFile(BUNDLED_BIN, cachePath).catch(() => {});
+        this._scheduleRefresh(cachePath);
         return;
-      } catch (err) {
-        console.warn('[bubl] bundled engine unreadable, fetching fresh', err.message);
+      } catch (e) {
+        console.warn('[bubl/adblock] bundled binary unreadable, fetching from network', e.message);
       }
     }
 
-    // Step 3: Last resort — fetch from the network.
-    await this._refreshEngine(cachePath);
+    // ── 3. Last resort: fetch filter lists from the network. ──
+    await this._refreshEngine(cachePath, /* setReady */ true);
   }
 
-  async _refreshEngine(cachePath) {
+  _scheduleRefresh(cachePath) {
+    // Delay the network refresh so the browser window opens first.
+    setTimeout(() => this._refreshEngine(cachePath, false), 5000);
+  }
+
+  async _refreshEngine(cachePath, setReady) {
     try {
-      const engine = await withTimeout(
+      const engine = await Promise.race([
         ElectronBlocker.fromPrebuiltAdsAndTracking(fetch, {
           path: cachePath,
           read: fsp.readFile,
           write: fsp.writeFile
         }),
-        30000
-      );
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 30000)
+        )
+      ]);
       this.engine = engine;
-      this.ready = true;
-      console.log('[bubl] adblock engine updated from network lists');
-    } catch (err) {
-      if (!this.engine) {
-        // Nothing worked at all.
-        console.error('[bubl] adblock completely unavailable', err.message);
+      if (setReady) this.ready = true;
+      console.log('[bubl/adblock] engine refreshed from network');
+    } catch (e) {
+      if (setReady && !this.engine) {
+        // Total failure — use an empty engine so the browser still loads.
+        console.error('[bubl/adblock] could not load any filters:', e.message);
         this.engine = ElectronBlocker.empty();
         this.ready = true;
       } else {
-        console.warn('[bubl] background refresh failed, keeping existing engine', err.message);
+        console.warn('[bubl/adblock] background refresh failed (keeping current engine):', e.message);
       }
     }
   }
 
-  setEnabled(value) {
-    this.enabled = !!value;
-  }
+  setEnabled(value) { this.enabled = !!value; }
 
-  isSiteWhitelisted(hostname) {
-    return hostname ? this.whitelist.has(hostname) : false;
-  }
+  isSiteWhitelisted(hostname) { return hostname ? this.whitelist.has(hostname) : false; }
 
   setSiteEnabled(hostname, enabled) {
     if (!hostname) return;
@@ -124,67 +122,56 @@ class AdBlocker {
   }
 
   resetTab(webContentsId) {
-    if (this.tabCounts.get(webContentsId)) {
-      this.tabCounts.set(webContentsId, 0);
-      this.onCountChanged(webContentsId, 0);
-    } else {
-      this.tabCounts.set(webContentsId, 0);
-    }
+    this.tabCounts.set(webContentsId, 0);
+    this.onCountChanged(webContentsId, 0);
   }
 
-  forgetTab(webContentsId) {
-    this.tabCounts.delete(webContentsId);
-  }
+  forgetTab(webContentsId) { this.tabCounts.delete(webContentsId); }
 
-  getCount(webContentsId) {
-    return this.tabCounts.get(webContentsId) || 0;
-  }
+  getCount(webContentsId) { return this.tabCounts.get(webContentsId) || 0; }
 
-  getTotalBlocked() {
-    return this._totalBlocked;
-  }
+  getTotalBlocked() { return this._totalBlocked; }
 
   /**
-   * Attach the blocker's request handler to a session. Safe to call for both
-   * the normal and incognito partitions.
+   * Register a blocking handler on an Electron session.
    *
-   * The handler is registered immediately even if the engine isn't loaded yet;
-   * requests pass through until `this.ready` is true, then blocking starts
-   * automatically without needing to re-register.
+   * Safe to call before init() finishes: the handler checks this.ready so
+   * requests pass through harmlessly until the engine is loaded, then
+   * blocking activates automatically — no re-registration needed.
    */
   enableForSession(session) {
-    // Track sessions so we can log; never double-register.
-    if (!this._sessions) this._sessions = new Set();
     if (this._sessions.has(session)) return;
     this._sessions.add(session);
 
     session.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+      // Track every domain a tab contacts (for network-footprint panel).
       try {
         this.onRequestSeen(details.webContentsId, new URL(details.url).hostname);
       } catch {}
 
-      if (!this.enabled || !this.ready || !this.engine) {
+      if (!this.enabled || !this.ready || !this.engine) return callback({});
+
+      // Skip internal bubl/devtools pages.
+      const url = details.url;
+      if (url.startsWith('file://') || url.startsWith('devtools://') ||
+          url.startsWith('chrome-extension://') || url.startsWith('chrome://')) {
         return callback({});
       }
 
-      // Per-site toggle: skip blocking entirely for whitelisted top frames.
+      // Per-site toggle: skip blocking for whitelisted top-frame hosts.
       const host = this.hostnameResolver(details.webContentsId);
-      if (host && this.whitelist.has(host)) {
-        return callback({});
-      }
+      if (host && this.whitelist.has(host)) return callback({});
 
       let request;
       try {
         request = fromElectronDetails(details);
-      } catch (err) {
+      } catch {
         return callback({});
       }
 
       const { match, redirect } = this.engine.match(request);
 
-      if (redirect) {
-        return callback({ redirectURL: redirect.dataUrl });
-      }
+      if (redirect) return callback({ redirectURL: redirect.dataUrl });
       if (match) {
         this._increment(details.webContentsId);
         return callback({ cancel: true });

@@ -131,6 +131,47 @@ class WindowController {
     this._send('window:state', { maximized: this.win.isMaximized(), edge });
   }
 
+  /**
+   * Move OS-level keyboard focus from the active tab's WebContentsView back to
+   * the chrome window. Without this the command bar opens but typing goes to
+   * the (now hidden) page, so the user has to click the bar first.
+   */
+  focusChrome() {
+    if (this.destroyed || !this.win) return;
+    if (this.win.isMinimized()) this.win.restore();
+    this.win.focus();
+    this.win.webContents.focus();
+  }
+
+  /**
+   * Re-attach an app-mode (detached) window's tab back into the main browser
+   * window as a new tab, then close this standalone window.
+   */
+  reattachToMain() {
+    const tab = this._tab(this.activeTabId);
+    const url = tab ? (tab.pendingUrl || tab.url) : '';
+    // Find an existing non-app, non-incognito window to host the tab.
+    let target = this.services.windows.find(
+      (c) => c !== this && !c.appMode && !c.incognito && !c.destroyed
+    );
+    if (!target) {
+      // No regular window open — promote a fresh one.
+      target = this.services.openWindow({ incognito: false });
+    }
+    if (url) {
+      // The target window may still be loading its chrome; defer the new tab
+      // until its renderer is ready.
+      if (target.win && target.win.webContents.isLoading()) {
+        target.win.webContents.once('did-finish-load', () => target.newTab(url));
+      } else {
+        target.newTab(url);
+      }
+    }
+    if (target.win) { target.win.show(); target.win.focus(); }
+    this.close();
+  }
+
+
   /** Pop a tab out into a standalone, sidebar-less "app" window. */
   detachTab(id) {
     const tab = this._tab(id);

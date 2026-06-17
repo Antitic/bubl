@@ -136,7 +136,12 @@ app.on('window-all-closed', () => {
 function buildMenu() {
   const sendShortcut = (action) => {
     const c = focusedController();
-    if (c) c._send('shortcut', { action });
+    if (!c) return;
+    // For actions that open the command/address bar, pull OS keyboard focus
+    // back to the chrome window first so the user can type immediately without
+    // having to click the bar with the mouse.
+    if (action === 'focus-address' || action === 'new-tab-bar') c.focusChrome();
+    c._send('shortcut', { action });
   };
 
   const template = [
@@ -229,6 +234,7 @@ function registerIpc() {
   ipcMain.handle('tab:stop', (e, id) => { const c = controllerFromEvent(e); c && c.stop(id); });
   ipcMain.handle('tab:home', (e, id) => { const c = controllerFromEvent(e); c && c.goHome(id); });
   ipcMain.handle('tab:detach', (e, id) => { const c = controllerFromEvent(e); c && c.detachTab(id); });
+  ipcMain.handle('tab:reattach', (e) => { const c = controllerFromEvent(e); c && c.reattachToMain(); });
   ipcMain.handle('tab:setSpace', (e, { id, spaceId }) => { const c = controllerFromEvent(e); c && c.setTabSpace(id, spaceId); });
   ipcMain.handle('tab:toggleReader', (e, id) => { const c = controllerFromEvent(e); c && c.toggleReader(id); });
   ipcMain.handle('network:footprint', (e, id) => { const c = controllerFromEvent(e); return c ? c.networkFootprint(id) : []; });

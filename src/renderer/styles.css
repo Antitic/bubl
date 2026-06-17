@@ -338,6 +338,10 @@ body.app-mode #app { grid-template-columns: 1fr; }
 }
 .app-tb-controls { display: flex; gap: 11px; align-items: center; }
 .app-tb-controls .winbtn { width: 15px; height: 15px; }
+.app-tb-reattach {
+  height: 28px; padding: 0 12px; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.02em; white-space: nowrap; margin-right: 4px;
+}
 
 /* ============================================================
    Content + overlays
