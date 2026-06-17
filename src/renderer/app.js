@@ -19,6 +19,7 @@ const DUCK_SVG = `
 </svg>`;
 document.getElementById('brand-duck').innerHTML = DUCK_SVG;
 document.getElementById('start-duck').innerHTML = DUCK_SVG;
+document.getElementById('app-tb-duck').innerHTML = DUCK_SVG;
 
 // ---------------------------------------------------------------------------
 // State
@@ -57,8 +58,7 @@ bubl.on('init', (p) => {
   if (state.incognito) $('#incognito-badge').hidden = false;
   if (state.appMode) {
     document.body.classList.add('app-mode');
-    $('#app-controls').hidden = false;
-    $('#app-drag').hidden = false;
+    $('#app-titlebar').hidden = false;
   }
   document.documentElement.style.setProperty('--radius-factor', p.radiusFactor || 1);
   state.sidebarPinned = !!p.sidebarPinned;
@@ -193,12 +193,11 @@ function renderSpaces() {
 
 async function switchSpace(id) {
   state.activeSpaceId = id;
-  await bubl.spacesSetActive(id);
   renderSpaces();
   renderTabs();
-  const inSpace = state.tabs.find((t) => (t.spaceId || 'default') === id);
-  if (inSpace) bubl.activateTab(inSpace.id);
-  else bubl.newTab('');
+  // Main restores the last-active tab for this space (or opens a fresh one)
+  // and broadcasts a tabs:update, which re-renders with the right active tab.
+  await bubl.spacesSetActive(id);
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +320,8 @@ function syncActiveTabUi() {
   $('#btn-star').textContent = tab && tab.bookmarked ? '★' : '☆';
   $('#block-count').textContent = state.blockCounts[state.activeTabId] || 0;
   $('#btn-reader').classList.toggle('active', !!(tab && tab.readerOn));
+
+  if (state.appMode) $('#app-tb-title').textContent = (tab && tab.title) || 'Bubl';
 }
 
 // ---------------------------------------------------------------------------

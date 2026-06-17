@@ -8,16 +8,8 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <!-- Flat ink shell — relief comes from neumorphic box-shadows on the
-       surfaces inside, not from a painted backdrop. -->
+  <!-- Cream paper shell; structure comes from thick ink borders. -->
   <div class="candy-bg"></div>
-
-  <!-- Floating controls for detached "app" windows (no sidebar/toolbar). -->
-  <div id="app-controls" class="no-drag" hidden>
-    <button class="winbtn min" id="app-min" title="Minimize"></button>
-    <button class="winbtn close" id="app-close" title="Close"></button>
-  </div>
-  <div id="app-drag" class="drag" hidden></div>
 
   <div id="app">
     <!-- ============ SIDEBAR (vertical, Arc-style) ============ -->
@@ -50,6 +42,18 @@
 
     <!-- ============ MAIN ============ -->
     <main id="main">
+      <!-- Slim titlebar for detached "app" windows. The window-control
+           buttons are no-drag children of this drag region, so they receive
+           clicks reliably and are never covered by the native content view. -->
+      <header id="app-titlebar" class="drag" hidden>
+        <span class="app-tb-duck" id="app-tb-duck"></span>
+        <span class="app-tb-title" id="app-tb-title">Bubl</span>
+        <div class="app-tb-controls no-drag">
+          <button class="winbtn min" id="app-min" title="Minimize"></button>
+          <button class="winbtn close" id="app-close" title="Close"></button>
+        </div>
+      </header>
+
       <header id="toolbar" class="drag">
         <div class="nav-group no-drag">
           <button class="bubble bubble-round sm" id="btn-back" title="Back" disabled>‹</button>
@@ -148,20 +152,20 @@
               <div class="setting-row">
                 <div>
                   <div class="setting-label">Theme</div>
-                  <div class="setting-hint">Terre cuite (warm crème), Océan (cool blue), Forêt (green), Néon nuit (dark neon).</div>
+                  <div class="setting-hint">Vivid pop colours on warm cream. Midnight is the dark theme.</div>
                 </div>
                 <div class="theme-picker">
-                  <button class="theme-swatch" data-theme-option="terracotta" title="Terre cuite">
-                    <span class="ts-grad"></span><span class="ts-label">Terre cuite</span>
+                  <button class="theme-swatch" data-theme-option="terracotta" title="Sunset">
+                    <span class="ts-grad"></span><span class="ts-label">Sunset</span>
                   </button>
-                  <button class="theme-swatch" data-theme-option="ocean" title="Océan">
-                    <span class="ts-grad"></span><span class="ts-label">Océan</span>
+                  <button class="theme-swatch" data-theme-option="ocean" title="Lagoon">
+                    <span class="ts-grad"></span><span class="ts-label">Lagoon</span>
                   </button>
-                  <button class="theme-swatch" data-theme-option="forest" title="Forêt">
-                    <span class="ts-grad"></span><span class="ts-label">Forêt</span>
+                  <button class="theme-swatch" data-theme-option="forest" title="Jungle">
+                    <span class="ts-grad"></span><span class="ts-label">Jungle</span>
                   </button>
-                  <button class="theme-swatch" data-theme-option="neon" title="Néon nuit">
-                    <span class="ts-grad"></span><span class="ts-label">Néon</span>
+                  <button class="theme-swatch" data-theme-option="neon" title="Midnight">
+                    <span class="ts-grad"></span><span class="ts-label">Midnight</span>
                   </button>
                 </div>
               </div>

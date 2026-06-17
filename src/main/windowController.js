@@ -58,6 +58,8 @@ class WindowController {
     this.tabs = [];
     this.activeTabId = null;
     this.activeSpaceId = 'default';
+    /** Remembers the last active tab id per space, to restore on switch. */
+    this.lastTabBySpace = {};
     this.contentBounds = { x: 0, y: 0, width: 0, height: 0 };
     this.contentVisible = true;
     this.destroyed = false;
@@ -273,6 +275,10 @@ class WindowController {
     const tab = this._tab(id);
     if (!tab) return;
     this.activeTabId = id;
+    // Keep the active space in sync with the active tab and remember this tab
+    // as the space's most-recent, so re-entering the space returns to it.
+    this.activeSpaceId = tab.spaceId || 'default';
+    this.lastTabBySpace[this.activeSpaceId] = id;
 
     // Lazy-load a restored tab the first time it is shown.
     if (tab.pendingUrl) {
@@ -323,6 +329,22 @@ class WindowController {
 
   setActiveSpace(spaceId) {
     this.activeSpaceId = spaceId;
+
+    // Return to the tab we were last on in this space, if it still exists and
+    // still belongs here; otherwise fall back to the first tab, or a fresh one.
+    let target = null;
+    const remembered = this.lastTabBySpace[spaceId];
+    if (remembered) {
+      const t = this._tab(remembered);
+      if (t && (t.spaceId || 'default') === spaceId) target = remembered;
+    }
+    if (!target) {
+      const first = this.tabs.find((t) => (t.spaceId || 'default') === spaceId);
+      if (first) target = first.id;
+    }
+
+    if (target) this.activateTab(target);
+    else this.newTab('');
     this._emitTabs();
   }
 
