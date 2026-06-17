@@ -368,6 +368,14 @@ function registerIpc() {
     services.tor.clearBridges();
     return [];
   });
+  ipcMain.handle('tor:presetBridges', (e, type) => {
+    const ptConfig = require('./resources/tor/tor/pluggable_transports/pt_config.json');
+    const presets = ptConfig.bridges || {};
+    const bridges = presets[type] || [];
+    services.tor.clearBridges();
+    for (const b of bridges) services.tor.addBridge(b);
+    return services.tor.getBridges();
+  });
 }
 
 /**

@@ -224,10 +224,15 @@
                     </select>
                   </div>
                   <div class="setting-block" style="margin-top:8px">
-                    <div class="setting-label" style="font-size:12px">Bridges <span class="setting-hint">(for censored networks)</span></div>
-                    <div id="tor-bridge-list" style="font-size:11px;opacity:0.7;margin:4px 0"></div>
+                    <div class="setting-label" style="font-size:12px">Bridges <span class="setting-hint">(for censored networks — pick a preset or paste your own)</span></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0">
+                      <button class="bubble sm" data-tor-preset="obfs4" title="obfs4 — best for most blocked networks">obfs4</button>
+                      <button class="bubble sm" data-tor-preset="meek-azure" title="meek-azure — disguises traffic as Microsoft Azure HTTPS">meek (Azure)</button>
+                      <button class="bubble sm" data-tor-preset="snowflake" title="snowflake — uses WebRTC via volunteer proxies">Snowflake</button>
+                    </div>
+                    <div id="tor-bridge-list" style="font-size:11px;opacity:0.7;margin:4px 0;word-break:break-all"></div>
                     <div class="engine-add" style="margin-top:4px">
-                      <input id="tor-bridge-input" class="glass-inset panel-input" placeholder="obfs4 1.2.3.4:443 FP cert=... iat-mode=0" style="flex:1" />
+                      <input id="tor-bridge-input" class="glass-inset panel-input" placeholder="Paste a custom bridge line here…" style="flex:1" />
                       <button class="bubble" id="tor-bridge-add">Add</button>
                       <button class="bubble" id="tor-bridge-clear">Clear</button>
                     </div>

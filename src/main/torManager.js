@@ -131,7 +131,10 @@ class TorManager {
     }
     if (this._useBridges && this._bridges.length > 0) {
       lines.push('UseBridges 1');
-      lines.push(`ClientTransportPlugin obfs4 exec "${ptDir}\\lyrebird.exe"`);
+      // lyrebird handles obfs4, meek_lite, webtunnel, scramblesuit.
+      lines.push(`ClientTransportPlugin obfs4,meek_lite,webtunnel,scramblesuit exec "${ptDir}\\lyrebird.exe"`);
+      // conjure-client for conjure bridges.
+      lines.push(`ClientTransportPlugin conjure exec "${ptDir}\\conjure-client.exe" -registerURL https://registration.refraction.network/api`);
       for (const b of this._bridges) lines.push(`Bridge ${b}`);
     }
     await fsp.writeFile(torrcPath, lines.join('\n') + '\n', 'utf-8');

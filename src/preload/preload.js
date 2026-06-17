@@ -80,6 +80,7 @@ const api = {
   torSetExit: (cc) => invoke('tor:setExit', cc),
   torAddBridge: (line) => invoke('tor:addBridge', line),
   torClearBridges: () => invoke('tor:clearBridges'),
+  torPresetBridges: (type) => invoke('tor:presetBridges', type),
 
   // Events from main -> renderer
   on: (channel, handler) => {

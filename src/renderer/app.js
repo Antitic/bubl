@@ -638,6 +638,13 @@ $('#tor-bridge-clear').addEventListener('click', async () => {
   renderTorBridges(bridges);
 });
 
+document.querySelectorAll('[data-tor-preset]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const bridges = await bubl.torPresetBridges(btn.dataset.torPreset);
+    renderTorBridges(bridges);
+  });
+});
+
 // Live status updates from main process.
 bubl.on('tor:status', ({ status, progress }) => {
   torHint.textContent = status === 'starting'
