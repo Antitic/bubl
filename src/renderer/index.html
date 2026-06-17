@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="duotone">
+<html lang="en" data-theme="terracotta">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
@@ -86,6 +86,20 @@
             <div class="start-duck" id="start-duck"></div>
             <h1 class="start-title">Bubl</h1>
             <p class="start-sub">Private · Vivid · Fast</p>
+            <div class="start-stats" id="start-stats">
+              <div class="stat-block">
+                <div class="stat-value" id="stat-tabs">0</div>
+                <div class="stat-label">open tabs</div>
+              </div>
+              <div class="stat-block">
+                <div class="stat-value" id="stat-blocked">0</div>
+                <div class="stat-label">ads blocked</div>
+              </div>
+              <div class="stat-block">
+                <div class="stat-value" id="stat-spaces">0</div>
+                <div class="stat-label">spaces</div>
+              </div>
+            </div>
             <button class="start-cta bubble no-drag" id="start-cta">
               <span class="sec-ico">🔍</span><span>Search the web…</span>
             </button>
@@ -134,20 +148,20 @@
               <div class="setting-row">
                 <div>
                   <div class="setting-label">Theme</div>
-                  <div class="setting-hint">Neon Dark: ink + vivid multicolor neon. Duotone Ink: ink + one vivid coral.</div>
+                  <div class="setting-hint">Terre cuite (warm crème), Océan (cool blue), Forêt (green), Néon nuit (dark neon).</div>
                 </div>
                 <div class="theme-picker">
-                  <button class="theme-swatch" data-theme-option="neon" title="Neon Dark">
-                    <span class="ts-grad"></span><span class="ts-label">Neon</span>
+                  <button class="theme-swatch" data-theme-option="terracotta" title="Terre cuite">
+                    <span class="ts-grad"></span><span class="ts-label">Terre cuite</span>
                   </button>
-                  <button class="theme-swatch" data-theme-option="duotone" title="Duotone Ink">
-                    <span class="ts-grad"></span><span class="ts-label">Duotone</span>
+                  <button class="theme-swatch" data-theme-option="ocean" title="Océan">
+                    <span class="ts-grad"></span><span class="ts-label">Océan</span>
                   </button>
-                  <button class="theme-swatch" data-theme-option="forest" title="Forest Ink">
-                    <span class="ts-grad"></span><span class="ts-label">Forest</span>
+                  <button class="theme-swatch" data-theme-option="forest" title="Forêt">
+                    <span class="ts-grad"></span><span class="ts-label">Forêt</span>
                   </button>
-                  <button class="theme-swatch" data-theme-option="violet" title="Violet Ink">
-                    <span class="ts-grad"></span><span class="ts-label">Violet</span>
+                  <button class="theme-swatch" data-theme-option="neon" title="Néon nuit">
+                    <span class="ts-grad"></span><span class="ts-label">Néon</span>
                   </button>
                 </div>
               </div>

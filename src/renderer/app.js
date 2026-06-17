@@ -7,15 +7,15 @@
 // ---------------------------------------------------------------------------
 const DUCK_SVG = `
 <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-  <ellipse cx="58" cy="86" rx="40" ry="29" fill="#FFC107"/>
-  <circle cx="58" cy="54" r="36" fill="#FFD740"/>
-  <path d="M52 18 q3 -12 11 -7 q2 5 -1 10 q-5 -3 -10 -3z" fill="#FFB300"/>
-  <path d="M60 17 q5 -9 11 -2 q1 5 -3 9 q-4 -5 -8 -7z" fill="#FFC107"/>
-  <path d="M86 58 q23 -1 28 7 q-4 9 -28 8 q-7 -8 0 -15z" fill="#FF7A1A"/>
-  <path d="M88 67 q21 0 26 3 q-5 6 -26 5z" fill="#E85D04"/>
-  <path d="M26 46 h54 q7 0 7 7 q0 3 -4 3 h-3 q-1 0 -2 2 q-3 12 -15 12 q-12 0 -14 -12 q0 -2 -3 -2 q-3 0 -3 2 q-2 12 -14 12 q-12 0 -15 -12 q-1 -2 -2 -2 h-1 q-4 0 -4 -4 q0 -6 7 -6z" fill="#16121f"/>
-  <circle cx="34" cy="55" r="4" fill="#18e0ff"/>
-  <circle cx="68" cy="55" r="4" fill="#ff2db5"/>
+  <rect x="18" y="62" width="80" height="48" rx="6" fill="var(--accent, #c2533a)"/>
+  <rect x="22" y="24" width="72" height="56" rx="8" fill="var(--duck-body, #FFD740)"/>
+  <rect x="78" y="48" width="28" height="14" rx="3" fill="var(--duck-beak, #FF7A1A)"/>
+  <rect x="78" y="56" width="28" height="8" rx="2" fill="var(--duck-beak-dark, #E85D04)"/>
+  <rect x="24" y="38" width="56" height="18" rx="4" fill="#16121f"/>
+  <rect x="32" y="42" width="10" height="10" rx="2" fill="var(--accent, #c2533a)"/>
+  <rect x="58" y="42" width="10" height="10" rx="2" fill="var(--accent-2, var(--accent, #ff2db5))"/>
+  <rect x="44" y="18" width="8" height="14" rx="2" fill="var(--duck-body, #FFD740)"/>
+  <rect x="52" y="14" width="8" height="16" rx="2" fill="var(--duck-body, #FFD740)"/>
 </svg>`;
 document.getElementById('brand-duck').innerHTML = DUCK_SVG;
 document.getElementById('start-duck').innerHTML = DUCK_SVG;
@@ -28,7 +28,7 @@ const state = {
   activeTabId: null,
   incognito: false,
   appMode: false,
-  theme: 'duotone',
+  theme: 'terracotta',
   engines: { engines: [], defaultId: 'duckduckgo' },
   bookmarks: [],
   blockCounts: {},
@@ -37,7 +37,7 @@ const state = {
   activeSpaceId: 'default',
   sidebarPinned: false
 };
-const THEME_ORDER = ['neon', 'duotone', 'forest', 'violet'];
+const THEME_ORDER = ['terracotta', 'ocean', 'forest', 'neon'];
 
 const $ = (s) => document.querySelector(s);
 const el = (t, c) => { const n = document.createElement(t); if (c) n.className = c; return n; };
@@ -49,7 +49,7 @@ const activeTab = () => state.tabs.find((t) => t.id === state.activeTabId) || nu
 bubl.on('init', (p) => {
   state.incognito = p.incognito;
   state.appMode = !!p.appMode;
-  state.theme = p.theme || 'duotone';
+  state.theme = p.theme || 'terracotta';
   state.engines = p.searchEngines || state.engines;
   state.bookmarks = p.bookmarks || [];
   applyTheme(state.theme);
@@ -121,7 +121,7 @@ bubl.on('shortcut', ({ action }) => {
 function applyTheme(theme) {
   // Settings saved by older builds used 'light'/'dark', which no longer
   // exist as CSS themes — falling back keeps the window from rendering blank.
-  if (!THEME_ORDER.includes(theme)) theme = 'duotone';
+  if (!THEME_ORDER.includes(theme)) theme = 'terracotta';
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
   document.querySelectorAll('.theme-swatch').forEach((b) => b.classList.toggle('active', b.dataset.themeOption === theme));
@@ -492,7 +492,17 @@ function updateContentVisibility() {
 // ---------------------------------------------------------------------------
 // Start page shortcuts
 // ---------------------------------------------------------------------------
+function updateStartStats() {
+  const s = $('#stat-tabs'); if (s) s.textContent = state.tabs.length;
+  const b = $('#stat-blocked'); if (b) {
+    let total = 0; for (const k in state.blockCounts) total += state.blockCounts[k] || 0;
+    b.textContent = total;
+  }
+  const sp = $('#stat-spaces'); if (sp) sp.textContent = state.spaces.length || 1;
+}
+
 function renderStartShortcuts() {
+  updateStartStats();
   const wrap = $('#start-shortcuts');
   wrap.innerHTML = '';
   for (const b of state.bookmarks.slice(0, 8)) {

@@ -11,11 +11,8 @@ const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
 const TAB_PRELOAD = path.join(__dirname, '..', 'preload', 'tabPreload.js');
 
-const THEMES = new Set(['neon', 'duotone']);
-// Settings saved by older builds used 'light'/'dark', which no longer exist
-// as CSS themes — sending one of those through leaves every themed variable
-// unresolved and the window renders fully transparent. Coerce to a known theme.
-function normalizeTheme(theme) { return THEMES.has(theme) ? theme : 'duotone'; }
+const THEMES = new Set(['terracotta', 'ocean', 'forest', 'neon']);
+function normalizeTheme(theme) { return THEMES.has(theme) ? theme : 'terracotta'; }
 
 let incognitoCounter = 0;
 
@@ -114,7 +111,7 @@ class WindowController {
       this._send('init', {
         incognito: this.incognito,
         appMode: this.appMode,
-        theme: normalizeTheme(this.services.settings.get('theme', 'duotone')),
+        theme: normalizeTheme(this.services.settings.get('theme', 'terracotta')),
         adblockEnabled: this.services.adblock.enabled,
         searchEngines: this.services.searchEngines.list(),
         bookmarks: this.services.bookmarks.list(),
