@@ -68,7 +68,7 @@ function createWindow({ incognito = false, appMode = false, restore = null } = {
 
 app.whenReady().then(async () => {
   services.settings = new Store('settings', {
-    theme: 'terracotta',
+    theme: 'pop',
     adblockEnabled: true
   });
   services.searchEngines = new SearchEngines();

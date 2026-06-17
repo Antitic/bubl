@@ -7,15 +7,13 @@
 // ---------------------------------------------------------------------------
 const DUCK_SVG = `
 <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-  <rect x="18" y="62" width="80" height="48" rx="6" fill="var(--accent, #c2533a)"/>
-  <rect x="22" y="24" width="72" height="56" rx="8" fill="var(--duck-body, #FFD740)"/>
-  <rect x="78" y="48" width="28" height="14" rx="3" fill="var(--duck-beak, #FF7A1A)"/>
-  <rect x="78" y="56" width="28" height="8" rx="2" fill="var(--duck-beak-dark, #E85D04)"/>
-  <rect x="24" y="38" width="56" height="18" rx="4" fill="#16121f"/>
-  <rect x="32" y="42" width="10" height="10" rx="2" fill="var(--accent, #c2533a)"/>
-  <rect x="58" y="42" width="10" height="10" rx="2" fill="var(--accent-2, var(--accent, #ff2db5))"/>
-  <rect x="44" y="18" width="8" height="14" rx="2" fill="var(--duck-body, #FFD740)"/>
-  <rect x="52" y="14" width="8" height="16" rx="2" fill="var(--duck-body, #FFD740)"/>
+  <circle cx="60" cy="60" r="54" fill="var(--lime,#9be000)" stroke="var(--ink,#1a1422)" stroke-width="5"/>
+  <rect x="24" y="34" width="64" height="50" rx="14" fill="var(--yellow,#ffc62e)" stroke="var(--ink,#1a1422)" stroke-width="4"/>
+  <rect x="80" y="50" width="26" height="15" rx="5" fill="var(--orange,#ff6b2c)" stroke="var(--ink,#1a1422)" stroke-width="3.5"/>
+  <rect x="26" y="44" width="56" height="17" rx="8.5" fill="var(--ink,#1a1422)"/>
+  <circle cx="40" cy="52.5" r="5" fill="var(--pink,#ff2e88)"/>
+  <circle cx="66" cy="52.5" r="5" fill="var(--blue,#2e6bff)"/>
+  <rect x="46" y="16" width="8" height="16" rx="4" fill="var(--violet,#8b40ff)" stroke="var(--ink,#1a1422)" stroke-width="3"/>
 </svg>`;
 document.getElementById('brand-duck').innerHTML = DUCK_SVG;
 document.getElementById('start-duck').innerHTML = DUCK_SVG;
@@ -29,7 +27,7 @@ const state = {
   activeTabId: null,
   incognito: false,
   appMode: false,
-  theme: 'terracotta',
+  theme: 'pop',
   engines: { engines: [], defaultId: 'duckduckgo' },
   bookmarks: [],
   blockCounts: {},
@@ -38,7 +36,7 @@ const state = {
   activeSpaceId: 'default',
   sidebarPinned: false
 };
-const THEME_ORDER = ['terracotta', 'ocean', 'forest', 'neon'];
+const THEME_ORDER = ['pop', 'midnight'];
 
 const $ = (s) => document.querySelector(s);
 const el = (t, c) => { const n = document.createElement(t); if (c) n.className = c; return n; };
@@ -50,7 +48,7 @@ const activeTab = () => state.tabs.find((t) => t.id === state.activeTabId) || nu
 bubl.on('init', (p) => {
   state.incognito = p.incognito;
   state.appMode = !!p.appMode;
-  state.theme = p.theme || 'terracotta';
+  state.theme = p.theme || 'pop';
   state.engines = p.searchEngines || state.engines;
   state.bookmarks = p.bookmarks || [];
   applyTheme(state.theme);
@@ -121,7 +119,7 @@ bubl.on('shortcut', ({ action }) => {
 function applyTheme(theme) {
   // Settings saved by older builds used 'light'/'dark', which no longer
   // exist as CSS themes — falling back keeps the window from rendering blank.
-  if (!THEME_ORDER.includes(theme)) theme = 'terracotta';
+  if (!THEME_ORDER.includes(theme)) theme = 'pop';
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
   document.querySelectorAll('.theme-swatch').forEach((b) => b.classList.toggle('active', b.dataset.themeOption === theme));

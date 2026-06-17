@@ -11,8 +11,8 @@ const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 const PRELOAD = path.join(__dirname, '..', 'preload', 'preload.js');
 const TAB_PRELOAD = path.join(__dirname, '..', 'preload', 'tabPreload.js');
 
-const THEMES = new Set(['terracotta', 'ocean', 'forest', 'neon']);
-function normalizeTheme(theme) { return THEMES.has(theme) ? theme : 'terracotta'; }
+const THEMES = new Set(['pop', 'midnight']);
+function normalizeTheme(theme) { return THEMES.has(theme) ? theme : 'pop'; }
 
 let incognitoCounter = 0;
 
@@ -113,7 +113,7 @@ class WindowController {
       this._send('init', {
         incognito: this.incognito,
         appMode: this.appMode,
-        theme: normalizeTheme(this.services.settings.get('theme', 'terracotta')),
+        theme: normalizeTheme(this.services.settings.get('theme', 'pop')),
         adblockEnabled: this.services.adblock.enabled,
         searchEngines: this.services.searchEngines.list(),
         bookmarks: this.services.bookmarks.list(),
