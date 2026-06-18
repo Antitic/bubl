@@ -23,6 +23,7 @@ const api = {
   detachTab: (id) => invoke('tab:detach', id),
   reattachTab: () => invoke('tab:reattach'),
   setTabSpace: (id, spaceId) => invoke('tab:setSpace', { id, spaceId }),
+  toggleEssential: (id) => invoke('tab:toggleEssential', id),
   toggleReader: (id) => invoke('tab:toggleReader', id),
   networkFootprint: (id) => invoke('network:footprint', id),
 

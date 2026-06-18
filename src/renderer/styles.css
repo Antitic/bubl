@@ -127,6 +127,10 @@ body.edge .candy-bg { border-radius: 0; border-width: 0; }
 body.sidebar-expanded #app { grid-template-columns: var(--sidebar-w) 1fr; }
 .drag { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
+/* The spaces bar and tab list are draggable window regions; the interactive
+   pills inside them punch no-drag holes so clicks still register. This lets
+   the user move the window by grabbing any empty area of the sidebar. */
+.tab, .space-chip, .space-add, .essential-tile { -webkit-app-region: no-drag; }
 
 /* ============================================================
    Surfaces — bordered paper with a hard drop shadow
@@ -166,6 +170,25 @@ body.sidebar-expanded #app { grid-template-columns: var(--sidebar-w) 1fr; }
   letter-spacing: 1px; text-transform: uppercase; color: var(--on-accent);
   background: var(--violet); border: 2px solid var(--ink); transition: opacity .2s ease;
 }
+
+/* ---- Essentials (Zen-style pinned favicon tiles) ---- */
+.essentials {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px;
+  padding-bottom: 13px; border-bottom: var(--bw) solid var(--ink);
+}
+body:not(.sidebar-expanded) .essentials { grid-template-columns: 1fr; }
+.essential-tile {
+  position: relative; aspect-ratio: 1 / 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--paper); color: var(--ink);
+  border: var(--bw) solid var(--ink); border-radius: calc(13px * var(--radius-factor));
+  box-shadow: var(--sh-sm); overflow: hidden;
+  transition: transform .2s var(--spring), box-shadow .16s, background .16s;
+}
+.essential-tile:hover { transform: translate(-2px,-2px); box-shadow: 4px 4px 0 var(--ink); }
+.essential-tile.active { background: var(--accent); }
+.essential-tile img { width: 22px; height: 22px; object-fit: cover; border-radius: 5px; }
+.essential-tile .et-glyph { font-size: 17px; }
 
 /* ---- Spaces ---- */
 .spaces-bar {
@@ -578,5 +601,21 @@ select.panel-input { cursor: pointer; }
 .suggest-item .s-url { color: var(--ink-soft); font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 42%; }
 .suggest-item:hover, .suggest-item.active { background: var(--blue); color: var(--on-accent); transform: translateX(3px); }
 .suggest-item:hover .s-url, .suggest-item.active .s-url { color: var(--on-accent); opacity: .8; }
+
+/* ---- Tab context menu ---- */
+.tab-menu {
+  position: fixed; z-index: 9999; min-width: 180px; padding: 6px;
+  border: var(--bw) solid var(--ink); border-radius: calc(14px * var(--radius-factor));
+  box-shadow: var(--sh-lg); display: flex; flex-direction: column; gap: 2px;
+}
+.tab-menu .tm-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border-radius: var(--radius-pill); cursor: pointer; font-size: 13px; font-weight: 700;
+  color: var(--ink); background: transparent; border: none; text-align: left; width: 100%;
+  transition: background .14s, color .14s, transform .14s var(--spring);
+}
+.tab-menu .tm-item:hover { background: var(--blue); color: var(--on-accent); transform: translateX(2px); }
+.tab-menu .tm-item.danger:hover { background: var(--pink); }
+.tab-menu .tm-ico { width: 16px; text-align: center; flex: 0 0 auto; }
 
 [hidden] { display: none !important; }

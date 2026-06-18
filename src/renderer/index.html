@@ -27,9 +27,13 @@
         <span class="ico">＋</span><span class="new-tab-label">New Tab</span>
       </button>
 
-      <div id="spaces-bar" class="spaces-bar no-drag" role="list"></div>
+      <!-- Essentials: favicon tiles pinned across every space (Zen-style).
+           Container is a drag region; tiles opt out via .no-drag. -->
+      <div id="essentials" class="essentials" role="list" hidden></div>
 
-      <div id="tablist" class="tablist no-drag" role="list"></div>
+      <div id="spaces-bar" class="spaces-bar" role="list"></div>
+
+      <div id="tablist" class="tablist" role="list"></div>
 
       <div class="sidebar-foot no-drag">
         <button class="bubble bubble-round" id="btn-bookmarks" title="Bookmarks">★</button>
@@ -279,6 +283,9 @@
       <div id="cmd-suggest" class="cmd-suggest"></div>
     </div>
   </div>
+
+  <!-- ============ Tab context menu ============ -->
+  <div id="tab-menu" class="tab-menu glass" hidden></div>
 
   <script src="app.js"></script>
 </body>

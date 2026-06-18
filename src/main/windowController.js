@@ -221,13 +221,15 @@ class WindowController {
     const r = this._restore;
     if (r && Array.isArray(r.tabs) && r.tabs.length) {
       for (const t of r.tabs) {
-        this.newTab(t.url || '', {
+        const tab = this.newTab(t.url || '', {
           activate: false,
           lazy: true,
           title: t.title,
           favicon: t.favicon,
           startPage: !t.url
         });
+        if (tab && t.essential) tab.essential = true;
+        if (tab && t.spaceId) tab.spaceId = t.spaceId;
       }
       const idx = Math.min(Math.max(r.activeIndex || 0, 0), this.tabs.length - 1);
       this.activateTab(this.tabs[idx].id);
@@ -269,6 +271,7 @@ class WindowController {
       isStartPage: isStart,
       pendingUrl: !isStart && lazy ? url : null,
       spaceId: this.activeSpaceId || 'default',
+      essential: false,
       readerOn: false,
       domains: new Set()
     };
@@ -508,6 +511,15 @@ class WindowController {
     this._emitTabs();
   }
 
+  /** Toggle a tab's "essential" status (Zen-style pinned tile, shown across
+      all spaces). Essential tabs can't be empty start pages. */
+  toggleEssential(id) {
+    const tab = this._tab(id);
+    if (!tab || tab.isStartPage) return;
+    tab.essential = !tab.essential;
+    this._emitTabs();
+  }
+
   /** Reassigns any tabs left in a removed space to the fallback space. */
   reassignSpace(oldId, newId) {
     for (const t of this.tabs) if (t.spaceId === oldId) t.spaceId = newId;
@@ -633,6 +645,7 @@ class WindowController {
       active: t.id === this.activeTabId,
       bookmarked: t.url ? this.services.bookmarks.has(t.url) : false,
       spaceId: t.spaceId || 'default',
+      essential: !!t.essential,
       readerOn: !!t.readerOn
     }));
   }
@@ -643,7 +656,9 @@ class WindowController {
       tabs: this.tabs.map((t) => ({
         url: t.pendingUrl || t.url || '',
         title: t.title,
-        favicon: t.favicon
+        favicon: t.favicon,
+        essential: !!t.essential,
+        spaceId: t.spaceId || 'default'
       })),
       activeIndex: Math.max(0, this.tabs.findIndex((t) => t.id === this.activeTabId))
     };

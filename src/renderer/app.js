@@ -69,6 +69,7 @@ bubl.on('tabs:update', ({ tabs, activeTabId, activeSpaceId }) => {
   state.tabs = tabs;
   state.activeTabId = activeTabId;
   if (activeSpaceId) state.activeSpaceId = activeSpaceId;
+  renderEssentials();
   renderTabs();
   renderSpaces();
   syncActiveTabUi();
@@ -208,7 +209,7 @@ function renderTabs() {
   const seen = new Set();
   // Empty start-page tabs are not listed — the "+ New Tab" button already
   // represents that state, so showing a "New Tab" entry would be a duplicate.
-  const visible = state.tabs.filter((t) => !t.isStartPage && (t.spaceId || 'default') === state.activeSpaceId);
+  const visible = state.tabs.filter((t) => !t.isStartPage && !t.essential && (t.spaceId || 'default') === state.activeSpaceId);
 
   visible.forEach((tab, i) => {
     seen.add(tab.id);
@@ -225,8 +226,69 @@ function renderTabs() {
   }
 }
 
+// Essential tabs are shown as favicon tiles across every space (Zen-style).
+function renderEssentials() {
+  const grid = $('#essentials');
+  const essentials = state.tabs.filter((t) => t.essential && !t.isStartPage);
+  grid.innerHTML = '';
+  grid.hidden = essentials.length === 0;
+
+  essentials.forEach((tab) => {
+    const tile = el('button', 'essential-tile no-drag' + (tab.id === state.activeTabId ? ' active' : ''));
+    tile.dataset.id = tab.id;
+    tile.title = tab.title || tab.url || 'Essential';
+    if (tab.favicon) {
+      const img = el('img'); img.src = tab.favicon;
+      img.onerror = () => { tile.innerHTML = ''; const g = el('span', 'et-glyph'); g.textContent = '🌐'; tile.appendChild(g); };
+      tile.appendChild(img);
+    } else {
+      const g = el('span', 'et-glyph'); g.textContent = '🌐'; tile.appendChild(g);
+    }
+    tile.addEventListener('click', () => bubl.activateTab(tab.id));
+    tile.addEventListener('contextmenu', (e) => { e.preventDefault(); openTabMenu(e, tab); });
+    grid.appendChild(tile);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Tab context menu (right-click) — pin to / unpin from essentials, close.
+// ---------------------------------------------------------------------------
+function openTabMenu(e, tab) {
+  const menu = $('#tab-menu');
+  menu.innerHTML = '';
+
+  const mkItem = (icon, label, fn, danger) => {
+    const item = el('button', 'tm-item' + (danger ? ' danger' : ''));
+    const ico = el('span', 'tm-ico'); ico.textContent = icon;
+    const txt = el('span'); txt.textContent = label;
+    item.append(ico, txt);
+    item.addEventListener('click', () => { closeTabMenu(); fn(); });
+    return item;
+  };
+
+  menu.append(
+    mkItem(tab.essential ? '📌' : '⭐', tab.essential ? 'Remove from Essentials' : 'Add to Essentials',
+      () => bubl.toggleEssential(tab.id)),
+    mkItem('⤢', 'Open as floating window', () => bubl.detachTab(tab.id)),
+    mkItem('✕', 'Close tab', () => bubl.closeTab(tab.id), true)
+  );
+
+  menu.hidden = false;
+  // Clamp to viewport.
+  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const x = Math.min(e.clientX, window.innerWidth - mw - 8);
+  const y = Math.min(e.clientY, window.innerHeight - mh - 8);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+
+function closeTabMenu() { $('#tab-menu').hidden = true; }
+document.addEventListener('click', (e) => { if (!e.target.closest('#tab-menu')) closeTabMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTabMenu(); });
+window.addEventListener('blur', closeTabMenu);
+
 function createTabNode(tab) {
-  const node = el('div', 'tab');
+  const node = el('div', 'tab no-drag');
   node.dataset.id = tab.id;
   node.setAttribute('draggable', 'true');
   const fav = el('div', 'tab-favicon');
@@ -246,6 +308,11 @@ function createTabNode(tab) {
     else bubl.activateTab(node.dataset.id);
   });
   node.addEventListener('auxclick', (e) => { if (e.button === 1) bubl.closeTab(node.dataset.id); });
+  node.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    const t = state.tabs.find((x) => x.id === node.dataset.id);
+    if (t) openTabMenu(e, t);
+  });
   wireDrag(node);
 
   const rec = { node, fav, title, close, data: {} };

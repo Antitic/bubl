@@ -242,6 +242,7 @@ function registerIpc() {
   ipcMain.handle('tab:detach', (e, id) => { const c = controllerFromEvent(e); c && c.detachTab(id); });
   ipcMain.handle('tab:reattach', (e) => { const c = controllerFromEvent(e); c && c.reattachToMain(); });
   ipcMain.handle('tab:setSpace', (e, { id, spaceId }) => { const c = controllerFromEvent(e); c && c.setTabSpace(id, spaceId); });
+  ipcMain.handle('tab:toggleEssential', (e, id) => { const c = controllerFromEvent(e); c && c.toggleEssential(id); });
   ipcMain.handle('tab:toggleReader', (e, id) => { const c = controllerFromEvent(e); c && c.toggleReader(id); });
   ipcMain.handle('network:footprint', (e, id) => { const c = controllerFromEvent(e); return c ? c.networkFootprint(id) : []; });
 
