@@ -98,6 +98,7 @@ class WindowController {
     this.contentVisible = true;
     this.destroyed = false;
     this._restore = restore;
+    this._closedTabs = [];
 
     if (incognito) {
       this.partition = `bubl-incognito-${++incognitoCounter}`;
@@ -430,13 +431,15 @@ class WindowController {
   activateTab(id) {
     const tab = this._tab(id);
     if (!tab) return;
+    // Revive a dormant essential tile — clear the flag so pendingUrl loads below.
+    if (tab.dormant) tab.dormant = false;
     this.activeTabId = id;
     // Keep the active space in sync with the active tab and remember this tab
     // as the space's most-recent, so re-entering the space returns to it.
     this.activeSpaceId = tab.spaceId || 'default';
     this.lastTabBySpace[this.activeSpaceId] = id;
 
-    // Lazy-load a restored tab the first time it is shown.
+    // Lazy-load a restored (or revived dormant) tab the first time it is shown.
     if (tab.pendingUrl) {
       const target = tab.pendingUrl;
       tab.pendingUrl = null;
@@ -456,6 +459,21 @@ class WindowController {
     if (idx === -1) return;
     const tab = this.tabs[idx];
 
+    // Essential tabs become dormant instead of being destroyed.
+    if (tab.essential && !tab.isStartPage && !tab.dormant) {
+      this._dormantTab(tab);
+      return;
+    }
+
+    // Remember non-start tabs for Ctrl+Shift+T (cap at 20).
+    if (!tab.isStartPage) {
+      const url = tab.pendingUrl || tab.url;
+      if (url) {
+        this._closedTabs.push({ url, title: tab.title, favicon: tab.favicon });
+        if (this._closedTabs.length > 20) this._closedTabs.shift();
+      }
+    }
+
     registry.unregister(tab.view.webContents.id);
     this.services.adblock.forgetTab(tab.view.webContents.id);
     try { this.win.contentView.removeChildView(tab.view); } catch {}
@@ -470,6 +488,28 @@ class WindowController {
     } else {
       this._emitTabs();
     }
+  }
+
+  _dormantTab(tab) {
+    const savedUrl = tab.pendingUrl || tab.url;
+    tab.dormant = true;
+    tab.pendingUrl = savedUrl;
+    tab.view.webContents.loadURL('about:blank').catch(() => {});
+    tab.view.setVisible(false);
+    if (this.activeTabId === tab.id) {
+      const next = this.tabs.find((t) => t.id !== tab.id && !t.dormant && !t.isStartPage)
+               || this.tabs.find((t) => t.id !== tab.id);
+      if (next) this.activateTab(next.id);
+      else this.newTab('');
+    } else {
+      this._emitTabs();
+    }
+  }
+
+  reopenClosedTab() {
+    if (this._closedTabs.length === 0) return;
+    const { url, title, favicon } = this._closedTabs.pop();
+    this.newTab(url, { activate: true, title, favicon });
   }
 
   reorderTabs(orderedIds) {
@@ -646,6 +686,7 @@ class WindowController {
       bookmarked: t.url ? this.services.bookmarks.has(t.url) : false,
       spaceId: t.spaceId || 'default',
       essential: !!t.essential,
+      dormant: !!t.dormant,
       readerOn: !!t.readerOn
     }));
   }

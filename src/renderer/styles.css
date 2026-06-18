@@ -127,10 +127,8 @@ body.edge .candy-bg { border-radius: 0; border-width: 0; }
 body.sidebar-expanded #app { grid-template-columns: var(--sidebar-w) 1fr; }
 .drag { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
-/* The spaces bar and tab list are draggable window regions; the interactive
-   pills inside them punch no-drag holes so clicks still register. This lets
-   the user move the window by grabbing any empty area of the sidebar. */
-.tab, .space-chip, .space-add, .essential-tile { -webkit-app-region: no-drag; }
+/* sidebar-foot has no no-drag class; its .bubble children do (in HTML).
+   This makes the gaps between footer buttons a window-drag zone. */
 
 /* ============================================================
    Surfaces — bordered paper with a hard drop shadow
@@ -189,6 +187,8 @@ body:not(.sidebar-expanded) .essentials { grid-template-columns: 1fr; }
 .essential-tile.active { background: var(--accent); }
 .essential-tile img { width: 22px; height: 22px; object-fit: cover; border-radius: 5px; }
 .essential-tile .et-glyph { font-size: 17px; }
+.essential-tile.dormant { opacity: 0.45; filter: grayscale(60%); }
+.essential-tile.dormant:hover { opacity: 0.8; filter: none; }
 
 /* ---- Spaces ---- */
 .spaces-bar {

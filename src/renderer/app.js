@@ -107,6 +107,7 @@ bubl.on('shortcut', ({ action }) => {
   if (action === 'new-tab-bar') openCmd('new');
   else if (action === 'focus-address') openCmd('current');
   else if (action === 'history') toggleOverlay('history');
+  else if (action === 'reopen-closed-tab') bubl.reopenClosedTab();
   else if (action && action.startsWith('space-')) {
     const idx = Number(action.slice(6)) - 1;
     const space = state.spaces[idx];
@@ -234,9 +235,12 @@ function renderEssentials() {
   grid.hidden = essentials.length === 0;
 
   essentials.forEach((tab) => {
-    const tile = el('button', 'essential-tile no-drag' + (tab.id === state.activeTabId ? ' active' : ''));
+    let cls = 'essential-tile no-drag';
+    if (!tab.dormant && tab.id === state.activeTabId) cls += ' active';
+    if (tab.dormant) cls += ' dormant';
+    const tile = el('button', cls);
     tile.dataset.id = tab.id;
-    tile.title = tab.title || tab.url || 'Essential';
+    tile.title = (tab.dormant ? '▶ ' : '') + (tab.title || tab.url || 'Essential');
     if (tab.favicon) {
       const img = el('img'); img.src = tab.favicon;
       img.onerror = () => { tile.innerHTML = ''; const g = el('span', 'et-glyph'); g.textContent = '🌐'; tile.appendChild(g); };
@@ -273,13 +277,15 @@ function openTabMenu(e, tab) {
     mkItem('✕', 'Close tab', () => bubl.closeTab(tab.id), true)
   );
 
+  // Position near cursor first, then clamp after layout (offsetWidth = 0 when hidden).
+  menu.style.left = e.clientX + 'px';
+  menu.style.top = e.clientY + 'px';
   menu.hidden = false;
-  // Clamp to viewport.
-  const mw = menu.offsetWidth, mh = menu.offsetHeight;
-  const x = Math.min(e.clientX, window.innerWidth - mw - 8);
-  const y = Math.min(e.clientY, window.innerHeight - mh - 8);
-  menu.style.left = x + 'px';
-  menu.style.top = y + 'px';
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth - 4) menu.style.left = Math.max(0, e.clientX - r.width) + 'px';
+    if (r.bottom > window.innerHeight - 4) menu.style.top = Math.max(0, e.clientY - r.height) + 'px';
+  });
 }
 
 function closeTabMenu() { $('#tab-menu').hidden = true; }

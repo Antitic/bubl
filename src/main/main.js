@@ -165,6 +165,11 @@ function buildMenu() {
           click: () => { const c = focusedController(); if (c && c.activeTabId) c.closeTab(c.activeTabId); }
         },
         {
+          label: 'Reopen Closed Tab',
+          accelerator: 'CmdOrCtrl+Shift+T',
+          click: () => { const c = focusedController(); if (c) c.reopenClosedTab(); }
+        },
+        {
           label: 'New Incognito Window',
           accelerator: 'CmdOrCtrl+Shift+N',
           click: () => createWindow({ incognito: true })
@@ -243,6 +248,7 @@ function registerIpc() {
   ipcMain.handle('tab:reattach', (e) => { const c = controllerFromEvent(e); c && c.reattachToMain(); });
   ipcMain.handle('tab:setSpace', (e, { id, spaceId }) => { const c = controllerFromEvent(e); c && c.setTabSpace(id, spaceId); });
   ipcMain.handle('tab:toggleEssential', (e, id) => { const c = controllerFromEvent(e); c && c.toggleEssential(id); });
+  ipcMain.handle('tab:reopenClosed', (e) => { const c = controllerFromEvent(e); c && c.reopenClosedTab(); });
   ipcMain.handle('tab:toggleReader', (e, id) => { const c = controllerFromEvent(e); c && c.toggleReader(id); });
   ipcMain.handle('network:footprint', (e, id) => { const c = controllerFromEvent(e); return c ? c.networkFootprint(id) : []; });
 

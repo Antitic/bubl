@@ -25,6 +25,7 @@ const api = {
   setTabSpace: (id, spaceId) => invoke('tab:setSpace', { id, spaceId }),
   toggleEssential: (id) => invoke('tab:toggleEssential', id),
   toggleReader: (id) => invoke('tab:toggleReader', id),
+  reopenClosedTab: () => invoke('tab:reopenClosed'),
   networkFootprint: (id) => invoke('network:footprint', id),
 
   // Spaces

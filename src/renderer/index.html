@@ -27,20 +27,20 @@
         <span class="ico">＋</span><span class="new-tab-label">New Tab</span>
       </button>
 
-      <!-- Essentials: favicon tiles pinned across every space (Zen-style).
-           Container is a drag region; tiles opt out via .no-drag. -->
-      <div id="essentials" class="essentials" role="list" hidden></div>
+      <!-- Essentials: favicon tiles pinned across every space (Zen-style). -->
+      <div id="essentials" class="essentials no-drag" role="list" hidden></div>
 
-      <div id="spaces-bar" class="spaces-bar" role="list"></div>
+      <div id="spaces-bar" class="spaces-bar no-drag" role="list"></div>
 
-      <div id="tablist" class="tablist" role="list"></div>
+      <div id="tablist" class="tablist no-drag" role="list"></div>
 
-      <div class="sidebar-foot no-drag">
-        <button class="bubble bubble-round" id="btn-bookmarks" title="Bookmarks">★</button>
-        <button class="bubble bubble-round" id="btn-history" title="History (Ctrl+H)">⏱</button>
-        <button class="bubble bubble-round" id="btn-incognito" title="Incognito window (Ctrl+Shift+N)">🕶</button>
-        <button class="bubble bubble-round" id="btn-settings" title="Settings">⚙</button>
-        <button class="bubble bubble-round" id="btn-theme" title="Toggle theme">◐</button>
+      <!-- sidebar-foot is a drag region; its buttons punch no-drag holes -->
+      <div class="sidebar-foot">
+        <button class="bubble bubble-round no-drag" id="btn-bookmarks" title="Bookmarks">★</button>
+        <button class="bubble bubble-round no-drag" id="btn-history" title="History (Ctrl+H)">⏱</button>
+        <button class="bubble bubble-round no-drag" id="btn-incognito" title="Incognito window (Ctrl+Shift+N)">🕶</button>
+        <button class="bubble bubble-round no-drag" id="btn-settings" title="Settings">⚙</button>
+        <button class="bubble bubble-round no-drag" id="btn-theme" title="Toggle theme">◐</button>
       </div>
     </aside>
 
