@@ -7,6 +7,7 @@ const { Store } = require('./store');
  * privacy-first philosophy. `%s` is replaced with the URL-encoded query.
  */
 const DEFAULT_ENGINES = [
+  { id: 'oltrelestelle', name: 'Oltrelestelle', url: 'https://oltrelestelle.fr/search/search?q=%s&language=fr-FR&time_range=&safesearch=0&categories=general', suggest: 'https://oltrelestelle.fr/search/autocompleter?q=%s' },
   { id: 'duckduckgo', name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=%s', suggest: 'https://duckduckgo.com/ac/?q=%s&type=list' },
   { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=%s', suggest: 'https://suggestqueries.google.com/complete/search?client=firefox&q=%s' },
   { id: 'bing', name: 'Bing', url: 'https://www.bing.com/search?q=%s', suggest: '' },
@@ -18,14 +19,14 @@ class SearchEngines {
   constructor() {
     this.store = new Store('search-engines', {
       engines: DEFAULT_ENGINES,
-      defaultId: 'duckduckgo'
+      defaultId: 'oltrelestelle'
     });
   }
 
   list() {
     return {
       engines: this.store.get('engines', DEFAULT_ENGINES),
-      defaultId: this.store.get('defaultId', 'duckduckgo')
+      defaultId: this.store.get('defaultId', 'oltrelestelle')
     };
   }
 
