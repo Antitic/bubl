@@ -1,0 +1,86 @@
+name: iOS IPA
+
+on:
+  push:
+    branches: [main, "claude/ios-keyboard-whisper-*"]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Build (unsigned)
+        run: |
+          cd ios
+          set -o pipefail
+          xcodebuild \
+            -project Bubl.xcodeproj \
+            -scheme Bubl \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build | tee build.log | grep -E "error:|warning: .*(deprecated)|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: ios/build.log
+
+      - name: Package IPA (ad-hoc signed so SideStore keeps the entitlements)
+        run: |
+          APP=ios/build/Build/Products/Release-iphoneos/Bubl.app
+          find "$APP" -name "*.framework" -maxdepth 2 -exec codesign -f -s - {} \;
+          codesign -f -s - --entitlements ios/BublKeyboard/BublKeyboard.entitlements "$APP/PlugIns/BublKeyboard.appex"
+          codesign -f -s - --entitlements ios/BublApp/Bubl.entitlements "$APP"
+          codesign -d --entitlements - "$APP/PlugIns/BublKeyboard.appex"
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          (cd out && zip -qry ../Bubl.ipa Payload)
+          ls -lh Bubl.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bubl-ipa
+          path: Bubl.ipa
+
+      - name: Publish "ios-latest" release (easy download from the iPhone)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete ios-latest --yes --cleanup-tag || true
+          gh release create ios-latest Bubl.ipa \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Bubl iOS (dernier build)" \
+            --notes "Build automatique de ${GITHUB_SHA::7} (${GITHUB_REF_NAME}). Télécharge Bubl.ipa depuis l'iPhone puis ouvre-le avec SideStore."

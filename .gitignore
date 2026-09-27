@@ -3,3 +3,9 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+ios/build/
+ios/*.xcodeproj/
+ios/BublApp/Info.plist
+ios/BublApp/Bubl.entitlements
+ios/BublKeyboard/Info.plist
+ios/BublKeyboard/BublKeyboard.entitlements
