@@ -21,7 +21,7 @@ final class KeyboardViewController: UIInputViewController {
 
     private var autocorrectEnabled: Bool {
         guard hasFullAccess else { return true }
-        return Bubl.sharedDefaults.object(forKey: SettingsKey.autocorrect) as? Bool ?? true
+        return MurmureShared.sharedDefaults.object(forKey: SettingsKey.autocorrect) as? Bool ?? true
     }
 
     private var proxy: UITextDocumentProxy { textDocumentProxy }
@@ -316,10 +316,10 @@ final class KeyboardViewController: UIInputViewController {
         dictation.refresh()
         switch dictation.phase {
         case .noFullAccess:
-            topBar.flash("Active « Autoriser l'accès complet » dans Réglages › Clavier › Bubl", duration: 4)
+            topBar.flash("Active « Autoriser l'accès complet » dans Réglages › Clavier › Murmure", duration: 4)
         case .sessionOff:
             if !openContainingApp(path: "start") {
-                topBar.flash("Ouvre l'app Bubl pour démarrer la session micro", duration: 4)
+                topBar.flash("Ouvre l'app Murmure pour démarrer la session micro", duration: 4)
             }
         case .idle:
             dictation.start()
@@ -359,7 +359,7 @@ final class KeyboardViewController: UIInputViewController {
     /// Extensions cannot call UIApplication.open directly; walk the responder chain to reach it.
     @discardableResult
     private func openContainingApp(path: String) -> Bool {
-        guard let url = URL(string: "\(Bubl.urlScheme)://\(path)") else { return false }
+        guard let url = URL(string: "\(MurmureShared.urlScheme)://\(path)") else { return false }
         let selector = NSSelectorFromString("openURL:options:completionHandler:")
         var responder: UIResponder? = self
         while let current = responder {

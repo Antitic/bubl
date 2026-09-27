@@ -1,6 +1,6 @@
 import Foundation
 
-/// Keyboard-side view of the dictation session running in the Bubl app.
+/// Keyboard-side view of the dictation session running in the Murmure app.
 final class DictationClient {
     enum Phase: Equatable {
         /// "Allow Full Access" is off: no shared container, no IPC.
@@ -111,7 +111,7 @@ final class DictationClient {
 
     private func consumeResult() {
         guard hasFullAccess(), let result = SharedStore.readResult() else { return }
-        let defaults = Bubl.sharedDefaults
+        let defaults = MurmureShared.sharedDefaults
         guard defaults.string(forKey: SettingsKey.lastConsumedResultID) != result.id.uuidString,
               Date().timeIntervalSince(result.createdAt) < 30 else { return }
         defaults.set(result.id.uuidString, forKey: SettingsKey.lastConsumedResultID)

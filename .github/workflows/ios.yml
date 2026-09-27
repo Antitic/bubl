@@ -36,8 +36,8 @@ jobs:
           cd ios
           set -o pipefail
           xcodebuild \
-            -project Bubl.xcodeproj \
-            -scheme Bubl \
+            -project Murmure.xcodeproj \
+            -scheme Murmure \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
@@ -59,31 +59,31 @@ jobs:
 
       - name: Package IPA (ad-hoc signed so SideStore keeps the entitlements)
         run: |
-          APP=ios/build/Build/Products/Release-iphoneos/Bubl.app
+          APP=ios/build/Build/Products/Release-iphoneos/Murmure.app
           find "$APP" -name "*.framework" -maxdepth 2 -exec codesign -f -s - {} \;
-          codesign -f -s - --entitlements ios/BublKeyboard/BublKeyboard.entitlements "$APP/PlugIns/BublKeyboard.appex"
-          codesign -f -s - --entitlements ios/BublApp/Bubl.entitlements "$APP"
-          codesign -d --entitlements - "$APP/PlugIns/BublKeyboard.appex"
+          codesign -f -s - --entitlements ios/MurmureKeyboard/MurmureKeyboard.entitlements "$APP/PlugIns/MurmureKeyboard.appex"
+          codesign -f -s - --entitlements ios/MurmureApp/Murmure.entitlements "$APP"
+          codesign -d --entitlements - "$APP/PlugIns/MurmureKeyboard.appex"
           mkdir -p out/Payload
           cp -R "$APP" out/Payload/
-          (cd out && zip -qry ../Bubl.ipa Payload)
-          ls -lh Bubl.ipa
+          (cd out && zip -qry ../Murmure.ipa Payload)
+          ls -lh Murmure.ipa
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Bubl-ipa
-          path: Bubl.ipa
+          name: Murmure-ipa
+          path: Murmure.ipa
 
       - name: Publish "ios-latest" release (easy download from the iPhone)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete ios-latest --yes --cleanup-tag || true
-          gh release create ios-latest Bubl.ipa \
+          gh release create ios-latest Murmure.ipa \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "Bubl iOS (dernier build)" \
-            --notes "Build automatique de ${GITHUB_SHA::7} (${GITHUB_REF_NAME}). Télécharge Bubl.ipa depuis l'iPhone puis ouvre-le avec SideStore."
+            --title "Murmure iOS (dernier build)" \
+            --notes "Build automatique de ${GITHUB_SHA::7} (${GITHUB_REF_NAME}). Télécharge Murmure.ipa depuis l'iPhone puis ouvre-le avec SideStore."
 
   screenshots:
     runs-on: macos-15
@@ -101,7 +101,7 @@ jobs:
           brew install xcodegen
           cd ios && xcodegen generate
           set -o pipefail
-          xcodebuild -project Bubl.xcodeproj -scheme Bubl -configuration Debug \
+          xcodebuild -project Murmure.xcodeproj -scheme Murmure -configuration Debug \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build -skipPackagePluginValidation -skipMacroValidation \
             CODE_SIGNING_ALLOWED=NO build | tee sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
@@ -110,16 +110,16 @@ jobs:
       - name: Boot an iPhone 13 and capture screens
         run: |
           RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[x for x in json.load(sys.stdin)['runtimes'] if x['platform']=='iOS' and x['isAvailable']]; print(r[-1]['identifier'])")
-          UDID=$(xcrun simctl create "Bubl iPhone 13" com.apple.CoreSimulator.SimDeviceType.iPhone-13 "$RUNTIME")
+          UDID=$(xcrun simctl create "Murmure iPhone 13" com.apple.CoreSimulator.SimDeviceType.iPhone-13 "$RUNTIME")
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
-          xcrun simctl install "$UDID" ios/build/Build/Products/Debug-iphonesimulator/Bubl.app
+          xcrun simctl install "$UDID" ios/build/Build/Products/Debug-iphonesimulator/Murmure.app
           mkdir -p screenshots
           shoot() {
             xcrun simctl ui "$UDID" appearance "$2"
-            xcrun simctl terminate "$UDID" com.tikawski.bubl || true
-            xcrun simctl launch "$UDID" com.tikawski.bubl -BublDemo "$1"
+            xcrun simctl terminate "$UDID" com.tikawski.murmure || true
+            xcrun simctl launch "$UDID" com.tikawski.murmure -MurmureDemo "$1"
             sleep 6
             xcrun simctl io "$UDID" screenshot "screenshots/$3.png"
           }

@@ -1,4 +1,4 @@
-# Bubl – clavier iOS avec dictée Whisper locale
+# Murmure – clavier iOS avec dictée Whisper locale
 
 Clavier AZERTY pour iPhone avec :
 
@@ -9,21 +9,21 @@ Clavier AZERTY pour iPhone avec :
 
 ## Comment ça marche
 
-iOS interdit le micro aux claviers. Comme Wispr Flow, Bubl fonctionne donc en deux parties :
+iOS interdit le micro aux claviers. Comme Wispr Flow, Murmure fonctionne donc en deux parties :
 
-1. **L'app Bubl** tient le micro ouvert en arrière-plan pendant une « session », fait tourner Whisper et renvoie le texte.
+1. **L'app Murmure** tient le micro ouvert en arrière-plan pendant une « session », fait tourner Whisper et renvoie le texte.
 2. **Le clavier** envoie « start » et « stop » à l'app (notifications Darwin + App Group partagé) et insère le texte reçu.
 
-La première fois que tu touches 🎤, le clavier ouvre Bubl, qui démarre la session et l'enregistrement. Reviens dans ton app avec « ◀︎ » en haut à gauche. Ensuite, tant que la session est active (15 min d'inactivité par défaut), 🎤 démarre et arrête la dictée sans jamais quitter ton app.
+La première fois que tu touches 🎤, le clavier ouvre Murmure, qui démarre la session et l'enregistrement. Reviens dans ton app avec « ◀︎ » en haut à gauche. Ensuite, tant que la session est active (15 min d'inactivité par défaut), 🎤 démarre et arrête la dictée sans jamais quitter ton app.
 
 ## Installer avec SideStore
 
-1. Sur l'iPhone, ouvre la page **Releases** du repo → `ios-latest` → télécharge `Bubl.ipa`.
-2. Dans SideStore : **My Apps › +** → choisis `Bubl.ipa`.
-3. Ouvre Bubl → télécharge le modèle **Large v3 Turbo** en Wi-Fi (≈ 630 Mo) et attends « Prêt ». Le premier chargement compile le modèle, ce qui prend 1 à 3 minutes.
-4. Réglages › Général › Clavier › Claviers › Ajouter › **Bubl**, puis active **Autoriser l'accès complet**.
+1. Sur l'iPhone, ouvre la page **Releases** du repo → `ios-latest` → télécharge `Murmure.ipa`.
+2. Dans SideStore : **My Apps › +** → choisis `Murmure.ipa`.
+3. Ouvre Murmure → télécharge le modèle **Large v3 Turbo** en Wi-Fi (≈ 630 Mo) et attends « Prêt ». Le premier chargement compile le modèle, ce qui prend 1 à 3 minutes.
+4. Réglages › Général › Clavier › Claviers › Ajouter › **Murmure**, puis active **Autoriser l'accès complet**.
 
-> Avec un Apple ID gratuit, SideStore limite à 3 app IDs actifs. Bubl en utilise 2 (l'app et le clavier). Il faut aussi rafraîchir tous les 7 jours dans SideStore.
+> Avec un Apple ID gratuit, SideStore limite à 3 app IDs actifs. Murmure en utilise 2 (l'app et le clavier). Il faut aussi rafraîchir tous les 7 jours dans SideStore.
 
 ## Compiler
 
@@ -33,7 +33,7 @@ En local, sur un Mac :
 
 ```sh
 brew install xcodegen
-cd ios && xcodegen generate && open Bubl.xcodeproj
+cd ios && xcodegen generate && open Murmure.xcodeproj
 ```
 
 ## Structure
@@ -41,5 +41,5 @@ cd ios && xcodegen generate && open Bubl.xcodeproj
 | Dossier | Contenu |
 |---|---|
 | `Shared/` | App Group (compatible SideStore), état et résultat partagés, notifications Darwin |
-| `BublApp/` | App SwiftUI : session micro, capture 16 kHz, WhisperKit, nettoyage du texte |
-| `BublKeyboard/` | Extension clavier : disposition, vue des touches, correcteur, barre de suggestions et micro |
+| `MurmureApp/` | App SwiftUI : session micro, capture 16 kHz, WhisperKit, nettoyage du texte |
+| `MurmureKeyboard/` | Extension clavier : disposition, vue des touches, correcteur, barre de suggestions et micro |

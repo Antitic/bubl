@@ -21,7 +21,7 @@ final class SpellEngine {
     }
 
     private let checker = UITextChecker()
-    private let queue = DispatchQueue(label: "bubl.spell", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "murmure.spell", qos: .userInitiated)
     private let languages: [String]
     private var weights: [String: Double] = [:]
     private var ignored: Set<String>

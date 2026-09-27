@@ -1,13 +1,13 @@
 import SwiftUI
 import UIKit
 
-/// Screenshot mode, driven by launch arguments (`-BublDemo home|keyboard|recording`).
+/// Screenshot mode, driven by launch arguments (`-MurmureDemo home|keyboard|recording`).
 /// Used by CI to capture the app and the real keyboard views in the simulator.
 enum DemoMode: String {
     case home, keyboard, recording
 
     static var current: DemoMode? {
-        UserDefaults.standard.string(forKey: "BublDemo").flatMap(DemoMode.init(rawValue:))
+        UserDefaults.standard.string(forKey: "MurmureDemo").flatMap(DemoMode.init(rawValue:))
     }
 }
 
@@ -42,7 +42,7 @@ struct KeyboardDemoScreen: View {
                 Text("Courses & idées").font(.title.bold())
                 Text(recording
                      ? "Rappel : appeler Giulia pour le resto de samedi."
-                     : "Salut ! Je teste le clavier Bubl, il marche vraiment biem")
+                     : "Salut ! Je teste le clavier Murmure, il marche vraiment biem")
                     .font(.body)
                 + Text("|").foregroundColor(.accentColor)
                 Spacer()

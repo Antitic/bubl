@@ -16,7 +16,7 @@ struct ContentView: View {
                 languageSection
                 keyboardSetupSection
             }
-            .navigationTitle("Bubl")
+            .navigationTitle("Murmure")
             .alert("Oups", isPresented: Binding(
                 get: { model.errorMessage != nil },
                 set: { if !$0 { model.errorMessage = nil } }
@@ -223,10 +223,10 @@ struct ContentView: View {
     private var keyboardSetupSection: some View {
         Section {
             VStack(alignment: .leading, spacing: 8) {
-                step(1, "Réglages › Général › Clavier › Claviers › Ajouter un clavier… › Bubl")
-                step(2, "Touche « Bubl » puis active « Autoriser l'accès complet » (nécessaire pour parler à l'app ; rien ne sort de ton iPhone).")
-                step(3, "Dans n'importe quelle app, maintiens 🌐 et choisis Bubl.")
-                step(4, "Touche 🎤 : la première fois, Bubl s'ouvre et démarre la session. Reviens avec « ◀︎ » et parle.")
+                step(1, "Réglages › Général › Clavier › Claviers › Ajouter un clavier… › Murmure")
+                step(2, "Touche « Murmure » puis active « Autoriser l'accès complet » (nécessaire pour parler à l'app ; rien ne sort de ton iPhone).")
+                step(3, "Dans n'importe quelle app, maintiens 🌐 et choisis Murmure.")
+                step(4, "Touche 🎤 : la première fois, Murmure s'ouvre et démarre la session. Reviens avec « ◀︎ » et parle.")
             }
             .font(.subheadline)
             Button {

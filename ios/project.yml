@@ -1,4 +1,4 @@
-name: Bubl
+name: Murmure
 
 options:
   bundleIdPrefix: com.tikawski
@@ -21,56 +21,56 @@ packages:
     exactVersion: 1.1.0
 
 targets:
-  Bubl:
+  Murmure:
     type: application
     platform: iOS
     sources:
-      - path: BublApp
+      - path: MurmureApp
       - path: Shared
       # Keyboard views are also compiled into the app for the screenshot demo mode.
-      - path: BublKeyboard/KeyboardLayout.swift
-      - path: BublKeyboard/KeyboardView.swift
-      - path: BublKeyboard/TopBarView.swift
-      - path: BublKeyboard/SpellEngine.swift
-      - path: BublKeyboard/DictationClient.swift
+      - path: MurmureKeyboard/KeyboardLayout.swift
+      - path: MurmureKeyboard/KeyboardView.swift
+      - path: MurmureKeyboard/TopBarView.swift
+      - path: MurmureKeyboard/SpellEngine.swift
+      - path: MurmureKeyboard/DictationClient.swift
     dependencies:
-      - target: BublKeyboard
+      - target: MurmureKeyboard
       - package: WhisperKit
         product: WhisperKit
     info:
-      path: BublApp/Info.plist
+      path: MurmureApp/Info.plist
       properties:
-        CFBundleDisplayName: Bubl
+        CFBundleDisplayName: Murmure
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen: {}
         UIApplicationSupportsIndirectInputEvents: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIBackgroundModes: [audio]
-        NSMicrophoneUsageDescription: "Bubl utilise le micro pour transcrire ta voix en texte, entièrement sur l'iPhone."
+        NSMicrophoneUsageDescription: "Murmure utilise le micro pour transcrire ta voix en texte, entièrement sur l'iPhone."
         CFBundleURLTypes:
-          - CFBundleURLName: com.tikawski.bubl
-            CFBundleURLSchemes: [bubl]
+          - CFBundleURLName: com.tikawski.murmure
+            CFBundleURLSchemes: [murmure]
     entitlements:
-      path: BublApp/Bubl.entitlements
+      path: MurmureApp/Murmure.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.tikawski.bubl]
+        com.apple.security.application-groups: [group.com.tikawski.murmure]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tikawski.bubl
-        PRODUCT_NAME: Bubl
+        PRODUCT_BUNDLE_IDENTIFIER: com.tikawski.murmure
+        PRODUCT_NAME: Murmure
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
-  BublKeyboard:
+  MurmureKeyboard:
     type: app-extension
     platform: iOS
     sources:
-      - path: BublKeyboard
+      - path: MurmureKeyboard
       - path: Shared
     info:
-      path: BublKeyboard/Info.plist
+      path: MurmureKeyboard/Info.plist
       properties:
-        CFBundleDisplayName: Bubl
+        CFBundleDisplayName: Murmure
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
@@ -82,17 +82,17 @@ targets:
             PrimaryLanguage: fr-FR
             RequestsOpenAccess: true
     entitlements:
-      path: BublKeyboard/BublKeyboard.entitlements
+      path: MurmureKeyboard/MurmureKeyboard.entitlements
       properties:
-        com.apple.security.application-groups: [group.com.tikawski.bubl]
+        com.apple.security.application-groups: [group.com.tikawski.murmure]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tikawski.bubl.keyboard
-        PRODUCT_NAME: BublKeyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.tikawski.murmure.keyboard
+        PRODUCT_NAME: MurmureKeyboard
 
 schemes:
-  Bubl:
+  Murmure:
     build:
       targets:
-        Bubl: all
-        BublKeyboard: all
+        Murmure: all
+        MurmureKeyboard: all

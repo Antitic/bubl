@@ -1,9 +1,9 @@
 import Foundation
 
 /// Everything the app and the keyboard extension need to agree on.
-enum Bubl {
-    static let urlScheme = "bubl"
-    static let baseAppGroup = "group.com.tikawski.bubl"
+enum MurmureShared {
+    static let urlScheme = "murmure"
+    static let baseAppGroup = "group.com.tikawski.murmure"
 
     /// SideStore / AltStore rewrite app-group identifiers when re-signing with a free
     /// Apple ID and list the real ones under `ALTAppGroups` in Info.plist, so resolve at runtime.
@@ -112,13 +112,13 @@ enum SharedStore {
     static func readResult() -> DictationResult? { read(DictationResult.self, from: resultFile) }
 
     private static func write<T: Encodable>(_ value: T, to name: String) {
-        guard let url = Bubl.containerURL?.appendingPathComponent(name),
+        guard let url = MurmureShared.containerURL?.appendingPathComponent(name),
               let data = try? JSONEncoder().encode(value) else { return }
         try? data.write(to: url, options: .atomic)
     }
 
     private static func read<T: Decodable>(_ type: T.Type, from name: String) -> T? {
-        guard let url = Bubl.containerURL?.appendingPathComponent(name),
+        guard let url = MurmureShared.containerURL?.appendingPathComponent(name),
               let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
@@ -126,12 +126,12 @@ enum SharedStore {
 
 // MARK: - Darwin notifications (cross-process pings, no payload)
 
-enum BublSignal: String, CaseIterable {
-    case start = "com.tikawski.bubl.cmd.start"
-    case stop = "com.tikawski.bubl.cmd.stop"
-    case cancel = "com.tikawski.bubl.cmd.cancel"
-    case state = "com.tikawski.bubl.state"
-    case result = "com.tikawski.bubl.result"
+enum MurmureSignal: String, CaseIterable {
+    case start = "com.tikawski.murmure.cmd.start"
+    case stop = "com.tikawski.murmure.cmd.stop"
+    case cancel = "com.tikawski.murmure.cmd.cancel"
+    case state = "com.tikawski.murmure.state"
+    case result = "com.tikawski.murmure.result"
 }
 
 final class DarwinNotifier {
@@ -141,14 +141,14 @@ final class DarwinNotifier {
     private var registered = Set<String>()
     private let lock = NSLock()
 
-    func post(_ signal: BublSignal) {
+    func post(_ signal: MurmureSignal) {
         let center = CFNotificationCenterGetDarwinNotifyCenter()
         CFNotificationCenterPostNotification(center, CFNotificationName(signal.rawValue as CFString), nil, nil, true)
     }
 
     /// Handlers are always called on the main queue. Keep the returned token to stop observing.
     @discardableResult
-    func observe(_ signal: BublSignal, handler: @escaping () -> Void) -> UUID {
+    func observe(_ signal: MurmureSignal, handler: @escaping () -> Void) -> UUID {
         let token = UUID()
         lock.lock()
         handlers[signal.rawValue, default: [:]][token] = handler

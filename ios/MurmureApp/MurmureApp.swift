@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct BublApp: App {
+struct MurmureApp: App {
     @StateObject private var model = AppModel.shared
 
     var body: some Scene {

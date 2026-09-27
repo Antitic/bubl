@@ -65,7 +65,7 @@ final class AppModel: ObservableObject {
 
     // MARK: Private
 
-    private let defaults = Bubl.sharedDefaults
+    private let defaults = MurmureShared.sharedDefaults
     private let recorder = AudioRecorder()
     private let whisper = WhisperEngine()
     private var heartbeat: Timer?
@@ -75,7 +75,7 @@ final class AppModel: ObservableObject {
     private let maxRecordingSeconds: TimeInterval = 10 * 60
 
     private init() {
-        let defaults = Bubl.sharedDefaults
+        let defaults = MurmureShared.sharedDefaults
         defaults.register(defaults: [
             SettingsKey.languageMode: LanguageMode.auto.rawValue,
             SettingsKey.removeFillers: true,
@@ -126,10 +126,10 @@ final class AppModel: ObservableObject {
         lastTiming = "6.8 s d'audio → 1.12 s de calcul (fr)"
     }
 
-    // MARK: - URL entry point (keyboard opens bubl://start)
+    // MARK: - URL entry point (keyboard opens murmure://start)
 
     func handle(url: URL) {
-        guard url.scheme == Bubl.urlScheme else { return }
+        guard url.scheme == MurmureShared.urlScheme else { return }
         switch url.host {
         case "start":
             launchedFromKeyboard = true
@@ -157,7 +157,7 @@ final class AppModel: ObservableObject {
 
     func startSession() async {
         guard await requestMicPermission() else {
-            errorMessage = "Autorise le micro dans Réglages › Bubl."
+            errorMessage = "Autorise le micro dans Réglages › Murmure."
             return
         }
         do {
