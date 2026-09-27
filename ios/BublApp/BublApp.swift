@@ -6,9 +6,15 @@ struct BublApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(model)
-                .onOpenURL { model.handle(url: $0) }
+            if let demo = DemoMode.current {
+                DemoRootView(mode: demo)
+                    .environmentObject(model)
+                    .onAppear { model.applyDemoState() }
+            } else {
+                ContentView()
+                    .environmentObject(model)
+                    .onOpenURL { model.handle(url: $0) }
+            }
         }
     }
 }

@@ -117,6 +117,15 @@ final class AppModel: ObservableObject {
         publishState()
     }
 
+    /// Sample state for screenshots (see DemoMode). Never touches the mic or the model.
+    func applyDemoState() {
+        modelStatus = .ready
+        sessionActive = true
+        sessionEndsAt = Date().addingTimeInterval(15 * 60)
+        lastTranscript = "Rappel : appeler Giulia pour le resto de samedi, et acheter du pain en rentrant."
+        lastTiming = "6.8 s d'audio → 1.12 s de calcul (fr)"
+    }
+
     // MARK: - URL entry point (keyboard opens bubl://start)
 
     func handle(url: URL) {

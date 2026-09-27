@@ -84,3 +84,51 @@ jobs:
             --prerelease \
             --title "Bubl iOS (dernier build)" \
             --notes "Build automatique de ${GITHUB_SHA::7} (${GITHUB_REF_NAME}). Télécharge Bubl.ipa depuis l'iPhone puis ouvre-le avec SideStore."
+
+  screenshots:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+
+      - name: Build for the simulator
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+          set -o pipefail
+          xcodebuild -project Bubl.xcodeproj -scheme Bubl -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build -skipPackagePluginValidation -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO build | tee sim.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" sim.log
+
+      - name: Boot an iPhone 13 and capture screens
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[x for x in json.load(sys.stdin)['runtimes'] if x['platform']=='iOS' and x['isAvailable']]; print(r[-1]['identifier'])")
+          UDID=$(xcrun simctl create "Bubl iPhone 13" com.apple.CoreSimulator.SimDeviceType.iPhone-13 "$RUNTIME")
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          xcrun simctl install "$UDID" ios/build/Build/Products/Debug-iphonesimulator/Bubl.app
+          mkdir -p screenshots
+          shoot() {
+            xcrun simctl ui "$UDID" appearance "$2"
+            xcrun simctl terminate "$UDID" com.tikawski.bubl || true
+            xcrun simctl launch "$UDID" com.tikawski.bubl -BublDemo "$1"
+            sleep 6
+            xcrun simctl io "$UDID" screenshot "screenshots/$3.png"
+          }
+          shoot home light 1-app
+          shoot keyboard light 2-clavier
+          shoot recording dark 3-clavier-dictee
+          ls -l screenshots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: screenshots

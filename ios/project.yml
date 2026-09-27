@@ -27,6 +27,12 @@ targets:
     sources:
       - path: BublApp
       - path: Shared
+      # Keyboard views are also compiled into the app for the screenshot demo mode.
+      - path: BublKeyboard/KeyboardLayout.swift
+      - path: BublKeyboard/KeyboardView.swift
+      - path: BublKeyboard/TopBarView.swift
+      - path: BublKeyboard/SpellEngine.swift
+      - path: BublKeyboard/DictationClient.swift
     dependencies:
       - target: BublKeyboard
       - package: WhisperKit
