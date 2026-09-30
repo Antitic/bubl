@@ -72,6 +72,8 @@ enum SettingsKey {
     static let selectedModel = "selectedModel"
     static let autocorrect = "autocorrect"
     static let lastConsumedResultID = "lastConsumedResultID"
+    /// Written by the keyboard each time it appears with Full Access (diagnostics in the app).
+    static let keyboardLastSeen = "keyboardLastSeen"
 }
 
 // MARK: - IPC payloads

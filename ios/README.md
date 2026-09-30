@@ -19,10 +19,12 @@ La première fois que tu touches 🎤, le clavier ouvre Murmure, qui démarre la
 ## Installer avec SideStore
 
 1. Sur l'iPhone, ouvre la page **Releases** du repo → `ios-latest` → télécharge `Murmure.ipa`.
-2. Dans SideStore : **My Apps › +** → choisis `Murmure.ipa`.
+2. Dans SideStore : **My Apps › +** → choisis `Murmure.ipa`. Si SideStore demande quoi faire des extensions, choisis **Keep App Extensions** : sinon le clavier n'est pas installé.
 3. Ouvre Murmure → télécharge le modèle **Large v3 Turbo** en Wi-Fi (≈ 630 Mo) et attends « Prêt ». Le premier chargement compile le modèle, ce qui prend 1 à 3 minutes.
 4. Réglages › Général › Clavier › Claviers › Ajouter › **Murmure**, puis active **Autoriser l'accès complet**.
 
+> En cas de souci, la section **Diagnostic du clavier** en bas de l'app indique ce qui bloque.
+>
 > Avec un Apple ID gratuit, SideStore limite à 3 app IDs actifs. Murmure en utilise 2 (l'app et le clavier). Il faut aussi rafraîchir tous les 7 jours dans SideStore.
 
 ## Compiler

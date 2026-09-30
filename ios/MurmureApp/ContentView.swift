@@ -3,6 +3,8 @@ import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var diagnosticsRefresh = 0
 
     var body: some View {
         NavigationStack {
@@ -15,6 +17,12 @@ struct ContentView: View {
                 modelSection
                 languageSection
                 keyboardSetupSection
+                diagnosticsSection
+                    .id(diagnosticsRefresh)
+            }
+            .onChange(of: scenePhase) { _, phase in
+                // Coming back from Settings: re-run the checks.
+                if phase == .active { diagnosticsRefresh += 1 }
             }
             .navigationTitle("Murmure")
             .alert("Oups", isPresented: Binding(
@@ -238,6 +246,28 @@ struct ContentView: View {
             }
         } header: {
             Text("Installer le clavier")
+        }
+    }
+
+    private var diagnosticsSection: some View {
+        Section {
+            let report = KeyboardDiagnostics.run()
+            ForEach(report) { check in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Image(systemName: check.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(check.ok ? .green : .red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(check.title)
+                        if let detail = check.detail {
+                            Text(detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Diagnostic du clavier")
+        } footer: {
+            Text("Groupe partagé : \(MurmureShared.appGroup)")
         }
     }
 

@@ -59,6 +59,9 @@ final class KeyboardViewController: UIInputViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        if hasFullAccess {
+            MurmureShared.sharedDefaults.set(Date(), forKey: SettingsKey.keyboardLastSeen)
+        }
         applyAppearance()
         if proxy.keyboardType == .numbersAndPunctuation || proxy.keyboardType == .numberPad || proxy.keyboardType == .decimalPad {
             mode = .numbers
